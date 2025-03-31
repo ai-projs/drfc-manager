@@ -170,6 +170,3 @@ cython_debug/
 
 # Test files
 /src/main.py
-
-# Poetry Dependency Management
-poetry.lock
