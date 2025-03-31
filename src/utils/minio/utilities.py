@@ -1,7 +1,10 @@
+import inspect
+from typing import Callable, Dict
+
 from minio.commonconfig import CopySource
 from minio.deleteobjects import DeleteObject
 
-from drfc_manager.types_built.hyperparameters import HyperParameters
+from src.types.hyperparameters import HyperParameters
 
 import io
 import os
@@ -9,8 +12,8 @@ from minio import Minio as MinioClient
 from minio.error import MinioException
 from orjson import dumps, OPT_INDENT_2
 
-from drfc_manager.types_built.model_metadata import ModelMetadata
-from drfc_manager.utils.minio.exceptions.file_upload_exception import FileUploadException
+from src.types.model_metadata import ModelMetadata
+from src.utils.minio.exceptions.file_upload_exception import FileUploadException, FunctionConversionException
 
 _bucket_name = os.getenv('BUCKET_NAME')
 _custom_files_folder = os.getenv('CUSTOM_FILES_FOLDER_PATH')
@@ -74,6 +77,16 @@ def upload_reward_function(
     except Exception as e:
         raise FileUploadException(original_exception=e)
 
+
+def function_to_bytes_buffer(func: Callable[[Dict], float]) -> io.BytesIO:
+    try:
+        source_code = inspect.getsource(func)
+        return io.BytesIO(source_code.encode('utf-8'))
+    except Exception as e:
+        raise FunctionConversionException(
+            message="Failed to convert reward function to BytesIO.",
+            original_exception=e
+        )
 
 def upload_metadata(
     minio_client: MinioClient,

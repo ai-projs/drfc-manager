@@ -1,24 +1,24 @@
 import os
 from copy import copy
 from io import BytesIO
+from typing import Callable, Dict
 
 from gloe import If
 from gloe.utils import debug, forward
 
-from drfc_manager.transformers.training import create_sagemaker_temp_files, check_if_metadata_is_available, \
+from src.transformers.training import create_sagemaker_temp_files, check_if_metadata_is_available, \
     upload_hyperparameters, upload_metadata, upload_reward_function, upload_training_params_file
-from drfc_manager.utils.docker.server import DockerClientServer
-from drfc_manager.transformers.general import check_if_model_exists, images_tags_has_some_running_container, \
-    echo, forward_condition, copy_object, remove_objects_folder
-from drfc_manager.types_built.hyperparameters import HyperParameters
-from drfc_manager.types_built.model_metadata import ModelMetadata
-from drfc_manager.utils.minio.server import MinioClientServer
+from src.utils.docker.server import DockerClientServer
+from src.transformers.general import check_if_model_exists, images_tags_has_some_running_container, \
+    echo, forward_condition, copy_object, remove_objects_folder, image_tag_has_running_container
+from src.types.hyperparameters import HyperParameters
+from src.types.model_metadata import ModelMetadata
+from src.utils.minio.server import MinioClientServer
 
 
 _docker_client = DockerClientServer.get_instance()
 _minio_client = MinioClientServer.get_instance()
-sagemaker_tag = os.getenv('SAGEMAKER_IMAGE_REPOTAG')
-robomaker_tag = os.getenv('ROBOMAKER_IMAGE_REPOTAG')
+simapp_tag = os.getenv('SIMAPP_IMAGE_REPOTAG')
 _custom_files_folder = os.getenv('CUSTOM_FILES_FOLDER_PATH')
 
 
@@ -26,7 +26,7 @@ def train_pipeline(
     model_name: str,
     hyperparameters: HyperParameters,
     model_metadata: ModelMetadata,
-    reward_function_buffer: BytesIO,
+    reward_function: Callable[[Dict], float],
     overwrite: bool = False
 ):
     reward_function_obj_location_custom = f'{_custom_files_folder}/reward_function.py'
@@ -36,14 +36,14 @@ def train_pipeline(
         (
             upload_hyperparameters(_minio_client, hyperparameters),
             upload_metadata(_minio_client, model_metadata),
-            upload_reward_function(_minio_client, reward_function_buffer)
+            upload_reward_function(_minio_client, reward_function)
         )
     )
 
     training_start_pipeline = (
         create_sagemaker_temp_files >>
         check_if_metadata_is_available >>
-        images_tags_has_some_running_container(_docker_client, [sagemaker_tag, robomaker_tag]) >>
+        image_tag_has_running_container(_docker_client, simapp_tag) >>
         forward_condition
         .Then(echo("The training is running, please stop the train before starting a new one."))
         .Else(
