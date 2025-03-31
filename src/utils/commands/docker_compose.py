@@ -1,9 +1,14 @@
 from subprocess import run
-from typing import List
+from typing import List, Optional
+
+from python_on_whales import DockerClient
+
 from src.types.docker import DockerImages
 
 
 import os
+
+from src.utils.compose.client import DockerComposeClient
 
 
 class DockerComposeCommands:
@@ -24,7 +29,9 @@ class DockerComposeCommands:
         Initializes the DockerComposeCommands object with the base Docker Compose command.
         """
         self._base_command = 'docker-compose'
-    
+
+        self.compose_client: Optional[DockerClient] = None
+
     def up(self, files_path: List[DockerImages]):
         """
         Executes the 'docker-compose up' command with specified files.
@@ -36,9 +43,13 @@ class DockerComposeCommands:
             composes = _adjust_composes_file_names(files_path)
             command = [self._base_command] + composes + ["up", "-d"]
 
-            result = run(command, capture_output=True)
-            if result.returncode != 0:
-                raise Exception(result.stderr)
+            print(composes)
+            self.compose_client = DockerComposeClient.get_instance(composes)
+            self.compose_client.compose.up()
+
+            # result = run(command, capture_output=True)
+            # if result.returncode != 0:
+            #     raise Exception(result.stderr)
         except Exception as e:
             raise e
     
@@ -78,7 +89,7 @@ def _adjust_composes_file_names(composes_names: List[str]) -> List[str]:
     
     compose_files = []
     for compose_name in composes_names:
-        compose_files.extend([flag, docker_composes_path + prefix + compose_name + suffix])
+        compose_files.extend([docker_composes_path + prefix + compose_name + suffix])
 
     return compose_files
 
