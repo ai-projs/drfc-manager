@@ -1,6 +1,6 @@
 from subprocess import run
 from typing import List
-from drfc_manager.types_built.docker import DockerImages
+from src.types.docker import DockerImages
 
 
 import os
@@ -93,7 +93,7 @@ def _discover_path_to_docker_composes() -> str:
     docker_images_dir = '/config/drfc-images'
     
     cwd = os.getcwd()
-    path = cwd.split("/drfc_manager")[0]
+    path = cwd.split("/src")[0]
     
     new_path = path + docker_images_dir + "/"
     

@@ -1,20 +1,22 @@
 from io import BytesIO
+from typing import Callable, Dict
 
 from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
 from minio.error import MinioException
 
-from drfc_manager.helpers.files_manager import create_folder, delete_files_on_folder
-from drfc_manager.transformers.exceptions.base import BaseExceptionTransformers
-from drfc_manager.types_built.hyperparameters import HyperParameters
-from drfc_manager.types_built.model_metadata import ModelMetadata
-from drfc_manager.utils.commands.docker_compose import DockerComposeCommands
-from drfc_manager.utils.minio.utilities import upload_hyperparameters as _upload_hyperparameters
-from drfc_manager.utils.minio.utilities import upload_reward_function as _upload_reward_function
-from drfc_manager.utils.minio.utilities import upload_metadata as _upload_metadata
-from drfc_manager.utils.minio.utilities import upload_local_data as _upload_local_data
-from drfc_manager.types_built.docker import DockerImages
-from drfc_manager.helpers.training_params import writing_on_temp_training_yml
+from src.helpers.files_manager import create_folder, delete_files_on_folder
+from src.transformers.exceptions.base import BaseExceptionTransformers
+from src.types.hyperparameters import HyperParameters
+from src.types.model_metadata import ModelMetadata
+from src.utils.commands.docker_compose import DockerComposeCommands
+from src.utils.minio.exceptions.file_upload_exception import FunctionConversionException
+from src.utils.minio.utilities import upload_hyperparameters as _upload_hyperparameters, function_to_bytes_buffer
+from src.utils.minio.utilities import upload_reward_function as _upload_reward_function
+from src.utils.minio.utilities import upload_metadata as _upload_metadata
+from src.utils.minio.utilities import upload_local_data as _upload_local_data
+from src.types.docker import DockerImages
+from src.helpers.training_params import writing_on_temp_training_yml
 
 
 sagemaker_temp_dir = '/tmp/sagemaker'
@@ -65,10 +67,11 @@ def upload_metadata(_, minio_client: MinioClient, model_metadata: ModelMetadata)
 
 
 @partial_transformer
-def upload_reward_function(_, minio_client: MinioClient, reward_function_buffer: BytesIO):
+def upload_reward_function(_, minio_client: MinioClient, reward_function: Callable[[Dict], float]):
     try:
+        reward_function_buffer = function_to_bytes_buffer(reward_function)
         _upload_reward_function(minio_client, reward_function_buffer)
-    except MinioException as e:
+    except (MinioException, FunctionConversionException) as e:
         raise BaseExceptionTransformers(exception=e)
     except Exception as e:
         raise BaseExceptionTransformers("It was not possible to upload the reward function", e)
