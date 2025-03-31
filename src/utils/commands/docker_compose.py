@@ -35,7 +35,7 @@ class DockerComposeCommands:
         try:
             composes = _adjust_composes_file_names(files_path)
             command = [self._base_command] + composes + ["up", "-d"]
-            
+
             result = run(command, capture_output=True)
             if result.returncode != 0:
                 raise Exception(result.stderr)
@@ -79,22 +79,24 @@ def _adjust_composes_file_names(composes_names: List[str]) -> List[str]:
     compose_files = []
     for compose_name in composes_names:
         compose_files.extend([flag, docker_composes_path + prefix + compose_name + suffix])
-    
+
     return compose_files
 
 
 def _discover_path_to_docker_composes() -> str:
     """
-    Discovers the path to Docker Compose files.
+    Discovers the absolute path to Docker Compose files.
 
     Returns:
-        str: Path to Docker Compose files.
+        str: Full path to the directory containing Docker Compose files.
     """
-    docker_images_dir = '/config/drfc-images'
-    
     cwd = os.getcwd()
-    path = cwd.split("/src")[0]
-    
-    new_path = path + docker_images_dir + "/"
-    
-    return new_path
+
+    root = cwd
+    while root != os.path.dirname(root):
+        config_path = os.path.join(root, "config", "drfc-images")
+        if os.path.isdir(config_path):
+            return config_path + os.sep
+        root = os.path.dirname(root)
+
+    raise FileNotFoundError("Could not locate 'config/drfc-images' directory from current path.")
