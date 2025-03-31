@@ -5,8 +5,10 @@ from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
 from minio.error import MinioException
 
+from src.helpers.config_envs import find_envs_files, load_envs_from_files
 from src.helpers.files_manager import create_folder, delete_files_on_folder
 from src.transformers.exceptions.base import BaseExceptionTransformers
+from src.types.config import ConfigEnvs
 from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
 from src.utils.commands.docker_compose import DockerComposeCommands
@@ -34,6 +36,16 @@ def create_sagemaker_temp_files(_) -> None:
     except Exception as e:
         raise BaseExceptionTransformers("It was not possible to create the sagemaker's temp folder", e)
 
+@transformer
+def expose_config_envs_from_files(_) -> None:
+    envs_file_names = [ConfigEnvs.run, ConfigEnvs.system]
+    try:
+        file_envs_path = find_envs_files(envs_file_names)
+        load_envs_from_files(file_envs_path)
+    except FileNotFoundError as e:
+        raise BaseExceptionTransformers(exception=e)
+    except Exception as e:
+        raise BaseExceptionTransformers(f"It was not possible to load the env related to {envs_file_names}", e)
 
 @transformer
 def check_if_metadata_is_available(_) -> None:

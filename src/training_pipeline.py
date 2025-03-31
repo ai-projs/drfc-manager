@@ -7,10 +7,10 @@ from gloe import If
 from gloe.utils import debug, forward
 
 from src.transformers.training import create_sagemaker_temp_files, check_if_metadata_is_available, \
-    upload_hyperparameters, upload_metadata, upload_reward_function, upload_training_params_file
+    upload_hyperparameters, upload_metadata, upload_reward_function, upload_training_params_file, start_training, \
+    expose_config_envs_from_files
 from src.utils.docker.server import DockerClientServer
-from src.transformers.general import check_if_model_exists, images_tags_has_some_running_container, \
-    echo, forward_condition, copy_object, remove_objects_folder, image_tag_has_running_container
+from src.transformers.general import check_if_model_exists, echo, forward_condition, copy_object, image_tag_has_running_container
 from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
 from src.utils.minio.server import MinioClientServer
@@ -29,6 +29,31 @@ def train_pipeline(
     reward_function: Callable[[Dict], float],
     overwrite: bool = False
 ):
+    """
+    Orchestrates the training pipeline for a DeepRacer Reinforcement Learning model.
+
+    This pipeline handles:
+      - Uploading hyperparameters, metadata, and reward function to MinIO
+      - Verifying container and model states to prevent conflicts
+      - Copying the reward function to the model's folder
+      - Uploading RoboMaker training configuration files
+      - Initiating the training setup, assuming all checks pass
+
+    Args:
+        model_name (str): Name of the model to be trained.
+        hyperparameters (HyperParameters): Training hyperparameters to upload.
+        model_metadata (ModelMetadata): Metadata describing the model's configuration.
+        reward_function (Callable[[Dict], float]): Python function defining the reward logic for training.
+        overwrite (bool, optional): If True, overwrites an existing model with the same name. Defaults to False.
+
+    Raises:
+        FileUploadException: If any file upload to MinIO fails.
+        FunctionConversionException: If reward function conversion to a file fails.
+
+    Returns:
+        None
+    """
+
     reward_function_obj_location_custom = f'{_custom_files_folder}/reward_function.py'
     reward_function_obj_location_model = f'{model_name}/reward_function.py'
 
@@ -60,7 +85,11 @@ def train_pipeline(
                 echo(f'The reward function copied successfully to models folder '
                      f'at {reward_function_obj_location_model}') >>
                 upload_training_params_file(_minio_client, model_name) >>
-                echo('Upload successfully the RoboMaker training configurations')
+                echo('Upload successfully the RoboMaker training configurations') >>
+                echo('Exposing the envs from config.env and system.env') >>
+                expose_config_envs_from_files >>
+                echo('Starting model training') >>
+                start_training
             )
         )
     )
