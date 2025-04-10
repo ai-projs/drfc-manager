@@ -21,7 +21,6 @@ _minio_client = MinioClientServer.get_instance()
 simapp_tag = os.getenv('SIMAPP_IMAGE_REPOTAG')
 _custom_files_folder = os.getenv('CUSTOM_FILES_FOLDER_PATH')
 
-
 def train_pipeline(
     model_name: str,
     hyperparameters: HyperParameters,

@@ -22,7 +22,8 @@ _reward_function_path = os.getenv('REWARD_FUNCTION_PATH')
 
 def upload_hyperparameters(
     minio_client: MinioClient,
-    hyperparameters: HyperParameters
+    hyperparameters: HyperParameters,
+    object_name: str = None
 ):
     """
     Uploads hyperparameters to an S3 bucket.
@@ -30,6 +31,7 @@ def upload_hyperparameters(
     Args:
         minio_client (MinioClient): The client of the minio api
         hyperparameters (HyperParameters): The hyperparameters to minio.
+        object_name (str, optional): The full path to store the hyperparameters. If None, uses default path.
 
     Returns:
         bool: True if the minio was successful, False otherwise.
@@ -38,11 +40,14 @@ def upload_hyperparameters(
     try:
         hyperparameters_serialized = dumps(hyperparameters, option=OPT_INDENT_2)
         object_size = len(hyperparameters_serialized)
-        object_name = 'hyperparameters.json'
+        
+        # Use provided path or default to custom_files_folder
+        if object_name is None:
+            object_name = f'{_custom_files_folder}/hyperparameters.json'
 
         result = minio_client.put_object(
             _bucket_name,
-            f'{_custom_files_folder}/{object_name}',
+            object_name,
             io.BytesIO(hyperparameters_serialized),
             length=object_size,
             content_type="application/json"
@@ -50,22 +55,26 @@ def upload_hyperparameters(
 
         return True if result else False
     except MinioException:
-        raise FileUploadException(message=f'Error uploading {object_name} file to S3 bucket')
+        raise FileUploadException(message=f'Error uploading hyperparameters file to S3 bucket')
     except Exception as e:
         raise FileUploadException(original_exception=e)
 
 
 def upload_reward_function(
     minio_client: MinioClient,
-    reward_function_buffer: io.BytesIO
+    reward_function_buffer: io.BytesIO,
+    object_name: str = None
 ):
     try:
         buffer_size = reward_function_buffer.getbuffer().nbytes
-        object_name = 'reward_function.py'
+        
+        # Use provided path or default to custom_files_folder
+        if object_name is None:
+            object_name = f'{_custom_files_folder}/reward_function.py'
 
         result = minio_client.put_object(
             _bucket_name,
-            f'{_custom_files_folder}/{object_name}',
+            object_name,
             reward_function_buffer,
             length=buffer_size,
             content_type="text/plain"
@@ -73,7 +82,7 @@ def upload_reward_function(
 
         return True if result else False
     except MinioException:
-        raise FileUploadException(message=f'Error uploading {object_name}  file to S3 bucket')
+        raise FileUploadException(message=f'Error uploading reward function file to S3 bucket')
     except Exception as e:
         raise FileUploadException(original_exception=e)
 
@@ -90,7 +99,8 @@ def function_to_bytes_buffer(func: Callable[[Dict], float]) -> io.BytesIO:
 
 def upload_metadata(
     minio_client: MinioClient,
-    model_metadata: ModelMetadata
+    model_metadata: ModelMetadata,
+    object_name: str = None
 ):
     """
     Uploads metadata to an S3 bucket.
@@ -98,6 +108,7 @@ def upload_metadata(
     Args:
         minio_client (MinioClient): The client of the minio api
         model_metadata (Model Metadata): The metadata to minio.
+        object_name (str, optional): The full path to store the metadata. If None, uses default path.
 
     Returns:
         bool: True if the minio was successful, False otherwise.
@@ -106,11 +117,14 @@ def upload_metadata(
     try:
         model_metadata_serialized = dumps(model_metadata, option=OPT_INDENT_2)
         object_size = len(model_metadata_serialized)
-        object_name = 'model_metadata.json'
+        
+        # Use provided path or default to custom_files_folder
+        if object_name is None:
+            object_name = f'{_custom_files_folder}/model_metadata.json'
 
         result = minio_client.put_object(
             _bucket_name,
-            f'{_custom_files_folder}/{object_name}',
+            object_name,
             io.BytesIO(model_metadata_serialized),
             length=object_size,
             content_type="application/json"
@@ -118,7 +132,7 @@ def upload_metadata(
 
         return True if result else False
     except MinioException:
-        raise FileUploadException(message=f'Error uploading {object_name}  file to S3 bucket')
+        raise FileUploadException(message=f'Error uploading model metadata file to S3 bucket')
     except Exception as e:
         raise FileUploadException(original_exception=e)
 

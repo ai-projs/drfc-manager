@@ -59,9 +59,9 @@ def check_if_metadata_is_available(_) -> None:
     
     
 @partial_transformer
-def upload_hyperparameters(_, minio_client: MinioClient, hyperparameters: HyperParameters):
+def upload_hyperparameters(_, minio_client: MinioClient, hyperparameters: HyperParameters, object_name: str = None):
     try:
-        _upload_hyperparameters(minio_client, hyperparameters)
+        _upload_hyperparameters(minio_client, hyperparameters, object_name=object_name)
     except MinioException as e:
         raise BaseExceptionTransformers(exception=e)
     except Exception as e:
@@ -69,9 +69,9 @@ def upload_hyperparameters(_, minio_client: MinioClient, hyperparameters: HyperP
     
     
 @partial_transformer
-def upload_metadata(_, minio_client: MinioClient, model_metadata: ModelMetadata):
+def upload_metadata(_, minio_client: MinioClient, model_metadata: ModelMetadata, object_name: str = None):
     try:
-        _upload_metadata(minio_client, model_metadata)
+        _upload_metadata(minio_client, model_metadata, object_name=object_name)
     except MinioException as e:
         raise BaseExceptionTransformers(exception=e)
     except Exception as e:
@@ -79,10 +79,10 @@ def upload_metadata(_, minio_client: MinioClient, model_metadata: ModelMetadata)
 
 
 @partial_transformer
-def upload_reward_function(_, minio_client: MinioClient, reward_function: Callable[[Dict], float]):
+def upload_reward_function(_, minio_client: MinioClient, reward_function: Callable[[Dict], float], object_name: str = None):
     try:
         reward_function_buffer = function_to_bytes_buffer(reward_function)
-        _upload_reward_function(minio_client, reward_function_buffer)
+        _upload_reward_function(minio_client, reward_function_buffer, object_name=object_name)
     except (MinioException, FunctionConversionException) as e:
         raise BaseExceptionTransformers(exception=e)
     except Exception as e:

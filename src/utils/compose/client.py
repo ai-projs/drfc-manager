@@ -18,7 +18,7 @@ class DockerComposeClient:
   def get_instance(cls, compose_files: List[str]):
     try:
       if cls._instance is None:
-        cls._instance = DockerClient(host=base_url, compose_files=compose_files)
+        cls._instance = DockerClient(host=base_url, compose_files=compose_files, compose_env_files=["/Users/jv/Desktop/uni/drfc-manager/src/utils/compose/.env"])
       return cls._instance
     except Exception as e:
       raise e
