@@ -5,7 +5,6 @@ from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
 from minio.error import MinioException
 
-from src.helpers.config_envs import find_envs_files, load_envs_from_files
 from src.helpers.files_manager import create_folder, delete_files_on_folder
 from src.transformers.exceptions.base import BaseExceptionTransformers
 from src.types.config import ConfigEnvs
@@ -18,8 +17,8 @@ from src.utils.minio.utilities import upload_reward_function as _upload_reward_f
 from src.utils.minio.utilities import upload_metadata as _upload_metadata
 from src.utils.minio.utilities import upload_local_data as _upload_local_data
 from src.types.docker import DockerImages
+from src.types.env_vars import EnvVars
 from src.helpers.training_params import writing_on_temp_training_yml
-
 
 sagemaker_temp_dir = '/tmp/sagemaker'
 work_directory = '/tmp/teste'
@@ -36,16 +35,13 @@ def create_sagemaker_temp_files(_) -> None:
     except Exception as e:
         raise BaseExceptionTransformers("It was not possible to create the sagemaker's temp folder", e)
 
-@transformer
-def expose_config_envs_from_files(_) -> None:
-    envs_file_names = [ConfigEnvs.run, ConfigEnvs.system]
+@partial_transformer
+def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> None:
     try:
-        file_envs_path = find_envs_files(envs_file_names)
-        load_envs_from_files(file_envs_path)
-    except FileNotFoundError as e:
-        raise BaseExceptionTransformers(exception=e)
+        env = EnvVars(DR_LOCAL_S3_MODEL_PREFIX=model_name, DR_LOCAL_S3_BUCKET=bucket_name)
+        env.load_to_environment()
     except Exception as e:
-        raise BaseExceptionTransformers(f"It was not possible to load the env related to {envs_file_names}", e)
+        raise BaseExceptionTransformers(f"Failed to load environment variables via dataclass", e)
 
 @transformer
 def check_if_metadata_is_available(_) -> None:
@@ -89,15 +85,26 @@ def upload_reward_function(_, minio_client: MinioClient, reward_function: Callab
         raise BaseExceptionTransformers("It was not possible to upload the reward function", e)
     
 
+def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
+    try:
+        minio_client.stat_object("tcc-experiments", object_name)
+        return True
+    except Exception:
+        return False
+
 @partial_transformer
 def upload_training_params_file(_, minio_client: MinioClient, model_name: str):
     try:
         yaml_key, local_yaml_path = writing_on_temp_training_yml(model_name)
         _upload_local_data(minio_client, local_yaml_path, yaml_key)
+        if verify_object_exists(minio_client, yaml_key):
+            print(f"Verified: Training params file exists at {yaml_key}")
+        else:
+            raise Exception(f"File not found after upload: {yaml_key}")
     except MinioException as e:
         raise BaseExceptionTransformers(exception=e)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to upload the reward function", e)
+        raise BaseExceptionTransformers("It was not possible to upload the training parameters file", e)
     
 
 @transformer

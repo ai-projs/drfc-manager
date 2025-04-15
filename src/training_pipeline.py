@@ -8,7 +8,7 @@ from gloe.utils import debug, forward
 
 from src.transformers.training import create_sagemaker_temp_files, check_if_metadata_is_available, \
     upload_hyperparameters, upload_metadata, upload_reward_function, upload_training_params_file, start_training, \
-    expose_config_envs_from_files
+    expose_config_envs_from_dataclass
 from src.utils.docker.server import DockerClientServer
 from src.transformers.general import check_if_model_exists, echo, forward_condition, copy_object, image_tag_has_running_container
 from src.types.hyperparameters import HyperParameters
@@ -18,6 +18,7 @@ from src.utils.minio.server import MinioClientServer
 
 _docker_client = DockerClientServer.get_instance()
 _minio_client = MinioClientServer.get_instance()
+_bucket_name = os.getenv('BUCKET_NAME')
 simapp_tag = os.getenv('SIMAPP_IMAGE_REPOTAG')
 _custom_files_folder = os.getenv('CUSTOM_FILES_FOLDER_PATH')
 
@@ -86,7 +87,7 @@ def train_pipeline(
                 upload_training_params_file(_minio_client, model_name) >>
                 echo('Upload successfully the RoboMaker training configurations') >>
                 echo('Exposing the envs from config.env and system.env') >>
-                expose_config_envs_from_files >>
+                expose_config_envs_from_dataclass(model_name, _bucket_name) >>
                 echo('Starting model training') >>
                 start_training
             )
