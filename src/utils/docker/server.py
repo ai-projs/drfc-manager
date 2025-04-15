@@ -17,7 +17,7 @@ class DockerClientServer:
     def get_instance(cls):
         try:
             if cls._instance is None:
-                cls._instance = APIClient(base_url, use_ssh_client=True)
+                cls._instance = APIClient()
             return cls._instance
         except Exception as e:
             raise e

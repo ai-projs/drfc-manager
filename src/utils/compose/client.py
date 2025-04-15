@@ -9,16 +9,9 @@ base_url = remote_docker_daemon if remote_docker_daemon is not None else local_d
 
 
 class DockerComposeClient:
-  _instance = None
+    def __init__(self, compose_files: List[str]):
+        self.compose_files = compose_files
+        # initialize the DockerClient with the provided compose files
+        self.client = DockerClient(compose_files=compose_files)
 
-  def __init__(self):
-    raise RuntimeError("This is a Singleton class, invoke the get_instance() method instead")
-
-  @classmethod
-  def get_instance(cls, compose_files: List[str]):
-    try:
-      if cls._instance is None:
-        cls._instance = DockerClient(host=base_url, compose_files=compose_files, compose_env_files=["/Users/jv/Desktop/uni/drfc-manager/src/utils/compose/.env"])
-      return cls._instance
-    except Exception as e:
-      raise e
+    # Remove get_instance and simply instantiate when needed
