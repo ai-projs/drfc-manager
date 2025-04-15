@@ -1,4 +1,5 @@
 from subprocess import run
+import threading
 from typing import List, Optional
 
 from python_on_whales import DockerClient
@@ -32,24 +33,25 @@ class DockerComposeCommands:
 
         self.compose_client: Optional[DockerClient] = None
 
-    def up(self, files_path: List[DockerImages]):
+    def up(self, files_path: List[DockerImages]) -> None:
         """
-        Executes the 'docker-compose up' command with specified files.
+        Asynchronously executes the 'docker-compose up' command with specified files.
+        This method returns immediately and runs the up command in a separate thread.
 
         Args:
-            files_path (List[DockerImages]): List of paths to the Docker Compose files.
+            files_path (List[DockerImages]): List of paths (or base names) for the Docker Compose files.
         """
         try:
             composes = _adjust_composes_file_names(files_path)
             command = [self._base_command] + composes + ["up", "-d"]
-
-            print(composes)
-            self.compose_client = DockerComposeClient.get_instance(composes)
-            self.compose_client.compose.up()
-
-            # result = run(command, capture_output=True)
-            # if result.returncode != 0:
-            #     raise Exception(result.stderr)
+            
+            self.compose_client = DockerComposeClient(composes)
+            
+            def run_up():
+                self.compose_client.client.compose.up(quiet=True)
+            
+            thread = threading.Thread(target=run_up, daemon=True)
+            thread.start()
         except Exception as e:
             raise e
     
