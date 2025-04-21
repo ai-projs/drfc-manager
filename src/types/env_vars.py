@@ -1,5 +1,6 @@
 import os
 from dataclasses import dataclass, asdict
+from typing import Optional
 
 @dataclass
 class EnvVars:
@@ -45,6 +46,8 @@ class EnvVars:
     DR_TRAIN_MULTI_CONFIG: bool = False
     DR_TRAIN_MIN_EVAL_TRIALS: int = 5
     DR_TRAIN_BEST_MODEL_METRIC: str = "progress"
+    DR_TRAIN_MAX_STEPS_PER_ITERATION: Optional[int] = None
+    DR_TRAIN_RTF: Optional[int] = None
 
     # Model paths and S3 keys
     DR_LOCAL_S3_MODEL_PREFIX: str = "rl-deepracer-sagemaker"
@@ -88,6 +91,8 @@ class EnvVars:
     DR_UPLOAD_S3_ROLE: str = "to-be-defined"
     DR_LOCAL_S3_BUCKET: str = "tcc-experiments"
     DR_LOCAL_S3_PROFILE: str = "minio"
+    DR_LOCAL_ACCESS_KEY_ID: str = "minioadmin"
+    DR_LOCAL_SECRET_ACCESS_KEY: str = "minioadmin123"
     DR_GUI_ENABLE: bool = False
     DR_KINESIS_STREAM_NAME: str = ""
     DR_CAMERA_MAIN_ENABLE: bool = True
@@ -98,17 +103,31 @@ class EnvVars:
     DR_MINIO_IMAGE: str = "latest"
     DR_ANALYSIS_IMAGE: str = "cpu"
     DR_COACH_IMAGE: str = "5.2.1"
-    DR_WORKERS: int = 4
+    DR_WORKERS: int = 1
     DR_ROBOMAKER_MOUNT_LOGS: bool = False
     DR_CLOUD_WATCH_ENABLE: bool = False
     DR_CLOUD_WATCH_LOG_STREAM_PREFIX: str = ""
-    DR_DOCKER_STYLE: str = "swarm"
+    DR_DOCKER_STYLE: str = "compose"
     DR_HOST_X: bool = False
+
+    # --- Resource Allocation & Ports ---
     DR_WEBVIEWER_PORT: int = 8100
+    DR_ROBOMAKER_TRAIN_PORT: str = "8080"
+    DR_ROBOMAKER_GUI_PORT: str = "5900"
+    DR_SAGEMAKER_CUDA_DEVICES: str = ""
+    DR_ROBOMAKER_CUDA_DEVICES: str = ""
+    DR_GAZEBO_ARGS: str = ""
+
+    # --- Telemetry ---
+    DR_TELEGRAF_HOST: str = ""
+    DR_TELEGRAF_PORT: str = ""
+    
+    DRFC_REPO_ABS_PATH: str = "/home/insightlab/deepracer/deepracer-for-cloud"
 
     def export_as_env_string(self) -> str:
         """Returns a single string with key=value pairs for all environment variables."""
-        return " ".join(f"{key}={value}" for key, value in asdict(self).items())
+        env_dict = {k: v for k, v in asdict(self).items() if v is not None}
+        return " ".join(f"{key}={value}" for key, value in env_dict.items())
 
     def load_to_environment(self) -> None:
         """

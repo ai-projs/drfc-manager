@@ -33,7 +33,7 @@ class TrainingAlgorithm(Enum):
     - `PPO`: Proximal Policy Optimization.
     """
     SAC = 'sac'
-    PPO = 'ppo'
+    PPO = 'clipped_ppo'
 
 
 class Sensor(Enum):

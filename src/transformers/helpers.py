@@ -1,12 +1,9 @@
 from typing import TypeVar, Any
 
-from gloe import transformer, partial_transformer, Transformer
-from gloe.utils import forward, debug, forward_incoming
+from gloe import transformer, Transformer
+from gloe.utils import forward_incoming
 
 _In = TypeVar('_In')
-
-# side_effect
-
 
 def side_effect(_transformer: Transformer[_In, Any]) -> Transformer[_In, _In]:
     """

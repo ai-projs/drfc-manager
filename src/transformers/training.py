@@ -1,47 +1,35 @@
-from io import BytesIO
 from typing import Callable, Dict
+import os
 
 from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
-from minio.error import MinioException
 
 from src.helpers.files_manager import create_folder, delete_files_on_folder
 from src.transformers.exceptions.base import BaseExceptionTransformers
-from src.types.config import ConfigEnvs
 from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
-from src.utils.commands.docker_compose import DockerComposeCommands
-from src.utils.minio.exceptions.file_upload_exception import FunctionConversionException
-from src.utils.minio.utilities import upload_hyperparameters as _upload_hyperparameters, function_to_bytes_buffer
-from src.utils.minio.utilities import upload_reward_function as _upload_reward_function
-from src.utils.minio.utilities import upload_metadata as _upload_metadata
-from src.utils.minio.utilities import upload_local_data as _upload_local_data
-from src.types.docker import DockerImages
 from src.types.env_vars import EnvVars
 from src.helpers.training_params import writing_on_temp_training_yml
+
+from src.utils.docker.docker_manager import DockerManager, DockerError
+from src.utils.minio.storage_manager import MinioStorageManager, StorageError
+
+from src.config import settings
 
 sagemaker_temp_dir = '/tmp/sagemaker'
 work_directory = '/tmp/teste'
 
-docker_compose = DockerComposeCommands()
-
+storage_manager = MinioStorageManager(settings)
+docker_manager = DockerManager(settings)
 
 @transformer
 def create_sagemaker_temp_files(_) -> None:
     try:
         create_folder(sagemaker_temp_dir, 0o770)
     except PermissionError as e:
-        raise BaseExceptionTransformers(exception=e)
+        raise BaseExceptionTransformers(f"Permission denied creating {sagemaker_temp_dir}", e)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to create the sagemaker's temp folder", e)
-
-@partial_transformer
-def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> None:
-    try:
-        env = EnvVars(DR_LOCAL_S3_MODEL_PREFIX=model_name, DR_LOCAL_S3_BUCKET=bucket_name)
-        env.load_to_environment()
-    except Exception as e:
-        raise BaseExceptionTransformers(f"Failed to load environment variables via dataclass", e)
+        raise BaseExceptionTransformers(f"Failed to create {sagemaker_temp_dir}", e)
 
 @transformer
 def check_if_metadata_is_available(_) -> None:
@@ -49,40 +37,33 @@ def check_if_metadata_is_available(_) -> None:
         create_folder(work_directory)
         delete_files_on_folder(work_directory)
     except PermissionError as e:
-        raise BaseExceptionTransformers(exception=e)
+        raise BaseExceptionTransformers(f"Permission denied accessing {work_directory}", e)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to check if the metadata is available", e)
+        raise BaseExceptionTransformers(f"Failed to setup {work_directory}", e)
     
     
 @partial_transformer
-def upload_hyperparameters(_, minio_client: MinioClient, hyperparameters: HyperParameters, object_name: str = None):
+def upload_hyperparameters(_, hyperparameters: HyperParameters):
     try:
-        _upload_hyperparameters(minio_client, hyperparameters, object_name=object_name)
-    except MinioException as e:
-        raise BaseExceptionTransformers(exception=e)
+        storage_manager.upload_hyperparameters(hyperparameters)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to upload the hyperparameters", e)
+        raise BaseExceptionTransformers("Failed to upload hyperparameters", e)
     
     
 @partial_transformer
-def upload_metadata(_, minio_client: MinioClient, model_metadata: ModelMetadata, object_name: str = None):
+def upload_metadata(_, model_metadata: ModelMetadata):
     try:
-        _upload_metadata(minio_client, model_metadata, object_name=object_name)
-    except MinioException as e:
-        raise BaseExceptionTransformers(exception=e)
+        storage_manager.upload_model_metadata(model_metadata)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to upload the model metadata", e)
+        raise BaseExceptionTransformers("Failed to upload model metadata", e)
 
 
 @partial_transformer
-def upload_reward_function(_, minio_client: MinioClient, reward_function: Callable[[Dict], float], object_name: str = None):
+def upload_reward_function(_, reward_function: Callable[[Dict], float]):
     try:
-        reward_function_buffer = function_to_bytes_buffer(reward_function)
-        _upload_reward_function(minio_client, reward_function_buffer, object_name=object_name)
-    except (MinioException, FunctionConversionException) as e:
-        raise BaseExceptionTransformers(exception=e)
+        storage_manager.upload_reward_function(reward_function)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to upload the reward function", e)
+        raise BaseExceptionTransformers("Failed to upload reward function", e)
     
 
 def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
@@ -93,33 +74,82 @@ def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
         return False
 
 @partial_transformer
-def upload_training_params_file(_, minio_client: MinioClient, model_name: str):
+def upload_training_params_file(_, model_name: str):
+    local_yaml_path = None
     try:
+        print("Generating local training_params.yaml...")
+        relevant_envs = EnvVars(DR_LOCAL_S3_MODEL_PREFIX=model_name, DR_LOCAL_S3_BUCKET=settings.minio.bucket_name)
+        relevant_envs.load_to_environment()
+
         yaml_key, local_yaml_path = writing_on_temp_training_yml(model_name)
-        _upload_local_data(minio_client, local_yaml_path, yaml_key)
-        if verify_object_exists(minio_client, yaml_key):
-            print(f"Verified: Training params file exists at {yaml_key}")
-        else:
-            raise Exception(f"File not found after upload: {yaml_key}")
-    except MinioException as e:
-        raise BaseExceptionTransformers(exception=e)
+        print(f"Generated {local_yaml_path}, uploading to {yaml_key}")
+
+        storage_manager.upload_local_file(local_yaml_path, yaml_key)
+
+        if not storage_manager.object_exists(yaml_key):
+            raise StorageError(f"Verification failed: {yaml_key} not found after upload.")
+        print(f"Verified: Training params file exists at {yaml_key}")
+
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to upload the training parameters file", e)
-    
+        raise BaseExceptionTransformers("Failed to upload training parameters file", e)
+    finally:
+        if local_yaml_path and os.path.exists(local_yaml_path):
+            try:
+                os.remove(local_yaml_path)
+                print(f"Cleaned up local file: {local_yaml_path}")
+            except OSError as e:
+                print(f"Warning: Failed to remove temporary file {local_yaml_path}: {e}")
 
 @transformer
 def start_training(_):
     try:
-        images_to_start_training = [DockerImages.training, DockerImages.keys, DockerImages.endpoint]
-        docker_compose.up(images_to_start_training)
+        print("Attempting to start DeepRacer Docker stack...")
+        docker_manager.cleanup_previous_run(prune_system=True)
+        docker_manager.start_deepracer_stack()
+        print("DeepRacer Docker stack started successfully.")
+    except DockerError as e:
+        print(f"DockerError starting stack: {e}")
+        raise BaseExceptionTransformers("Docker stack startup failed", e)
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to start the training", e)
-
+        print(f"Unexpected error starting stack: {type(e).__name__}: {e}")
+        raise BaseExceptionTransformers("Unexpected error during stack startup", e)
 
 @transformer
-def stop_training(_):
+def stop_training_transformer(_):
     try:
-        images_to_stop_training = [DockerImages.training, DockerImages.keys, DockerImages.endpoint]
-        docker_compose.down(images_to_stop_training)
+        print("Stopping DeepRacer Docker stack via transformer...")
+        docker_manager.cleanup_previous_run(prune_system=False)
+        print("DeepRacer Docker stack stopped via transformer.")
     except Exception as e:
-        raise BaseExceptionTransformers("It was not possible to stop the training", e)
+        raise BaseExceptionTransformers("It was not possible to stop the training via transformer", e)
+
+@transformer
+def check_training_logs_transformer(_):
+    try:
+        docker_manager.check_logs("redis")
+        docker_manager.check_logs("rl_coach")
+        docker_manager.check_logs("robomaker")
+        print("Log check complete.")
+        return True
+    except Exception as e:
+        print(f"Error checking logs: {e}")
+        return False
+    
+
+@partial_transformer
+def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> None:
+    """
+    Loads key DR_* environment variables into the current Python process environment.
+    Needed primarily for helpers like writing_on_temp_training_yml that read os.environ.
+    Container environment variables are set separately by DockerManager.
+    """
+    try:
+        env_loader = EnvVars(
+             DR_LOCAL_S3_MODEL_PREFIX=model_name,
+             DR_LOCAL_S3_BUCKET=bucket_name,
+             DR_AWS_APP_REGION=os.getenv('DR_AWS_APP_REGION', 'us-east-1'),
+        )
+        env_loader.load_to_environment()
+        print(f"Loaded DR_* vars for model '{model_name}' into current process environment.")
+    except Exception as e:
+        print(f"Warning: Failed to load DR_* vars into process environment: {e}")

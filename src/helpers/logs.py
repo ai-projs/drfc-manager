@@ -16,7 +16,6 @@ def wait_for_container(service_filter: str, wait_time: int = 30) -> str:
     container = None
     start_time = time.time()
     while time.time() - start_time < wait_time:
-        # Use the correct attribute: containers.list() (note the 's')
         for c in docker_client.container.list():
             if service_filter.lower() in c.name.lower():
                 container = c
