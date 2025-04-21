@@ -11,7 +11,8 @@ from src.types.model_metadata import ModelMetadata
 from src.types.env_vars import EnvVars
 from src.helpers.training_params import writing_on_temp_training_yml
 
-from src.utils.docker.docker_manager import DockerManager, DockerError
+from src.utils.docker.docker_manager import DockerManager
+from src.utils.docker.exceptions.base import DockerError
 from src.utils.minio.storage_manager import MinioStorageManager, StorageError
 
 from src.config import settings

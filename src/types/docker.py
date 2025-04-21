@@ -1,9 +1,9 @@
 from enum import Enum
-from dataclasses import dataclass
 
-
-@dataclass
-class DockerImages(str, Enum):
-    training = 'training'
-    endpoint = 'endpoint'
-    keys = 'keys'
+class ComposeFileType(Enum):
+    """Types of compose files used in DeepRacer"""
+    TRAINING = "training"
+    KEYS = "keys"
+    ENDPOINT = "endpoint"
+    MOUNT = "mount"
+    ROBOMAKER_MULTI = "robomaker-multi"

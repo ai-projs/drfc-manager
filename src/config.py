@@ -7,6 +7,8 @@ from pydantic import Field, DirectoryPath, FilePath, HttpUrl, AnyHttpUrl, valida
 from dotenv import load_dotenv
 load_dotenv()
 
+
+
 class MinioConfig(BaseSettings):
     """MinIO S3 Storage Configuration"""
     model_config = SettingsConfigDict(env_prefix='MINIO_')
@@ -57,8 +59,19 @@ class DeepRacerConfig(BaseSettings):
     robomaker_gui_port_base: int = 6900
     robomaker_train_port_base: int = 9080
 
+class RedisConfig(BaseSettings):
+    """Redis Configuration for DeepRacer Training"""
+    model_config = SettingsConfigDict(env_prefix='REDIS_')
+
+    # These values are fixed to ensure compatibility with DeepRacer simulation
+    network: str = Field(default="sagemaker-local", description="Docker network name")
+    subnet: str = Field(default="10.0.1.0/24", description="Network subnet (should not be changed)")
+    ip: str = Field(default="10.0.1.15", description="Redis IP address (must match what RoboMaker expects)")
+    port: str = Field(default="6379", description="Redis port")
+
 class AppConfig(BaseSettings):
     """Main Application Configuration"""
+    redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     docker: DockerConfig = DockerConfig()
     deepracer: DeepRacerConfig = DeepRacerConfig()
