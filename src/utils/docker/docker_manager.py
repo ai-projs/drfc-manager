@@ -135,6 +135,8 @@ class DockerManager:
         )
         os.environ["DR_CURRENT_PARAMS_FILE"] = self.config.deepracer.local_s3_training_params_file
         os.environ["DR_RUN_ID"] = str(self.config.deepracer.run_id)
+        os.environ['REDIS_IP'] = self.config.redis.ip
+        os.environ['REDIS_PORT'] = str(self.config.redis.port)
 
         if workers > 1:
             os.environ["ROBOMAKER_COMMAND"] = "/opt/simapp/run.sh multi distributed_training.launch"
