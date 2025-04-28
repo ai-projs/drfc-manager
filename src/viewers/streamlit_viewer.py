@@ -1,4 +1,3 @@
-# src/viewers/streamlit_viewer.py
 import streamlit as st
 import os
 import json
@@ -8,6 +7,7 @@ import tempfile
 from typing import List, Dict, Tuple, Optional, Any
 from pathlib import Path
 import streamlit.components.v1 as components
+import time
 
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
@@ -75,63 +75,83 @@ def load_containers_from_env() -> List[str]:
         return []
 
 def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
+    """Checks the stream proxy health endpoint and updates session state, with retry."""
     health_url = f"{proxy_url}/health"
-    logger.info(f"Checking proxy health at {health_url}...")
-    try:
-        response = requests.get(health_url, timeout=PROXY_TIMEOUT)
-        st.session_state.proxy_health_details = None
-        st.session_state.proxy_error_message = None
+    max_retries = 2
+    retry_delay = 1.0
 
-        if response.status_code == 200:
-            proxy_health_details = response.json()
-            is_healthy_status = proxy_health_details.get("status") == "healthy"
+    for attempt in range(max_retries + 1):
+        logger.info(f"Checking proxy health at {health_url} (Attempt {attempt + 1}/{max_retries + 1})...")
+        try:
+            response = requests.get(health_url, timeout=PROXY_TIMEOUT)
+            st.session_state.proxy_health_details = None
+            st.session_state.proxy_error_message = None
 
-            st.session_state.proxy_healthy = is_healthy_status
-            st.session_state.proxy_health_details = proxy_health_details
+            if response.status_code == 200:
+                proxy_health_details = response.json()
+                is_healthy_status = proxy_health_details.get("status") == "healthy"
+                st.session_state.proxy_healthy = is_healthy_status
+                st.session_state.proxy_health_details = proxy_health_details
+                if is_healthy_status:
+                    logger.info("Proxy health check successful: Status is healthy.")
+                    proxy_status_placeholder.success("Status: Healthy", icon="✅")
+                else:
+                    logger.warning(f"Proxy health check reported unhealthy. Details: {proxy_health_details}")
+                    proxy_status_placeholder.warning("Status: Unhealthy", icon="⚠️")
+                return
 
-            if is_healthy_status:
-                logger.info("Proxy health check successful: Status is healthy.")
-                proxy_status_placeholder.success("Status: Healthy", icon="✅")
+            elif response.status_code == 503:
+                 proxy_health_details = response.json()
+                 st.session_state.proxy_healthy = False
+                 st.session_state.proxy_health_details = proxy_health_details
+                 st.session_state.proxy_error_message = "Proxy reported unhealthy (503)"
+                 logger.warning(f"Proxy health check failed: Status 503 (Unhealthy). Details: {proxy_health_details}")
+                 proxy_status_placeholder.warning("Status: Unhealthy (Proxy Reported)", icon="⚠️")
+                 return
+
             else:
-                logger.warning(f"Proxy health check reported unhealthy. Details: {proxy_health_details}")
-                proxy_status_placeholder.warning("Status: Unhealthy", icon="⚠️")
+                 response.raise_for_status()
 
-        elif response.status_code == 503:
-             proxy_health_details = response.json()
-             st.session_state.proxy_healthy = False
-             st.session_state.proxy_health_details = proxy_health_details
-             st.session_state.proxy_error_message = "Proxy reported unhealthy (503)"
-             logger.warning(f"Proxy health check failed: Status 503 (Unhealthy). Details: {proxy_health_details}")
-             proxy_status_placeholder.warning("Status: Unhealthy (Proxy Reported)", icon="⚠️")
-        else:
-             response.raise_for_status()
+        except requests.exceptions.ConnectionError as e:
+            st.session_state.proxy_healthy = False
+            st.session_state.proxy_error_message = "Connection refused. Is the proxy running?"
+            logger.warning(f"Proxy health check attempt {attempt + 1} failed: Connection refused at {health_url}")
+            if attempt < max_retries:
+                logger.info(f"Retrying health check in {retry_delay}s...")
+                time.sleep(retry_delay)
+                continue
+            else:
+                logger.error(f"Proxy health check failed after {max_retries + 1} attempts: Connection refused.")
+                proxy_status_placeholder.error(f"Status: Connection Refused", icon="🚫")
+                return
 
-    except requests.exceptions.Timeout:
-        st.session_state.proxy_healthy = False
-        st.session_state.proxy_error_message = f"Connection timed out ({PROXY_TIMEOUT}s)"
-        logger.error(f"Proxy health check failed: Timeout after {PROXY_TIMEOUT}s connecting to {health_url}")
-        proxy_status_placeholder.error(f"Status: Timeout", icon="⏱️")
-    except requests.exceptions.ConnectionError:
-        st.session_state.proxy_healthy = False
-        st.session_state.proxy_error_message = "Connection refused. Is the proxy running?"
-        logger.error(f"Proxy health check failed: Connection refused at {health_url}")
-        proxy_status_placeholder.error(f"Status: Connection Refused", icon="🚫")
-    except requests.exceptions.RequestException as e:
-        st.session_state.proxy_healthy = False
-        st.session_state.proxy_error_message = f"Request failed: {str(e)}"
-        logger.error(f"Proxy health check failed: RequestException: {e}", exc_info=True)
-        proxy_status_placeholder.error(f"Status: Error ({response.status_code if 'response' in locals() else 'N/A'})", icon="❌")
-    except json.JSONDecodeError as e:
-        st.session_state.proxy_healthy = False
-        st.session_state.proxy_error_message = f"Failed to parse health response JSON: {e}"
-        logger.error(f"Proxy health check failed: Could not decode JSON response from {health_url}. Response text: {response.text[:200]}...", exc_info=True)
-        proxy_status_placeholder.error("Status: Invalid Response", icon=" B ")
-    except Exception as e:
-        st.session_state.proxy_healthy = False
-        st.session_state.proxy_error_message = f"An unexpected error occurred: {str(e)}"
-        logger.error(f"Proxy health check failed: Unexpected error: {e}", exc_info=True)
-        proxy_status_placeholder.error("Status: Unknown Error", icon="❓")
+        except requests.exceptions.Timeout:
+            st.session_state.proxy_healthy = False
+            st.session_state.proxy_error_message = f"Connection timed out ({PROXY_TIMEOUT}s)"
+            logger.error(f"Proxy health check failed: Timeout after {PROXY_TIMEOUT}s connecting to {health_url}")
+            proxy_status_placeholder.error(f"Status: Timeout", icon="⏱️")
+            return
 
+        except requests.exceptions.RequestException as e:
+            st.session_state.proxy_healthy = False
+            st.session_state.proxy_error_message = f"Request failed: {str(e)}"
+            logger.error(f"Proxy health check failed: RequestException: {e}", exc_info=True)
+            proxy_status_placeholder.error(f"Status: Error ({response.status_code if 'response' in locals() else 'N/A'})", icon="❌")
+            return
+
+        except json.JSONDecodeError as e:
+            st.session_state.proxy_healthy = False
+            st.session_state.proxy_error_message = f"Failed to parse health response JSON: {e}"
+            logger.error(f"Proxy health check failed: Could not decode JSON response from {health_url}. Response text: {response.text[:200]}...", exc_info=True)
+            proxy_status_placeholder.error("Status: Invalid Response", icon=" B ")
+            return
+
+        except Exception as e:
+            st.session_state.proxy_healthy = False
+            st.session_state.proxy_error_message = f"An unexpected error occurred: {str(e)}"
+            logger.error(f"Proxy health check failed: Unexpected error: {e}", exc_info=True)
+            proxy_status_placeholder.error("Status: Unknown Error", icon="❓")
+            return
 
 def get_camera_topic(camera_id: str, camera_map: Dict[str, Dict]) -> str:
     return camera_map.get(camera_id, {}).get("topic", DEFAULT_CAMERA_TOPIC)
@@ -310,7 +330,7 @@ with st.sidebar:
         if st.session_state.proxy_healthy:
             proxy_status_placeholder.success("Status: Healthy", icon="✅")
         elif st.session_state.proxy_error_message:
-             proxy_status_placeholder.error(f"Status: Error ({st.session_state.proxy_error_message})", icon="❌")
+            proxy_status_placeholder.error(f"Status: Error ({st.session_state.proxy_error_message})", icon="❌")
         elif st.session_state.proxy_healthy is False:
             proxy_status_placeholder.warning("Status: Unhealthy", icon="⚠️")
 
@@ -339,33 +359,35 @@ main_grid_width = max(1, st.session_state.width)
 main_grid_height = int(main_grid_width * (9 / 16))
 
 proxy_healthy = st.session_state.get('proxy_healthy', False)
+streams_to_show = []
 
 if not proxy_healthy:
      st.error("Streams cannot be displayed because the stream proxy server is not healthy or reachable. Check sidebar for details.")
 elif not containers:
-    pass
+     st.warning("No worker containers detected or specified via `DR_VIEWER_CONTAINERS` environment variable.")
 else:
-    streams_to_show = _determine_streams_to_display(
-        st.session_state.selected_container,
-        st.session_state.selected_camera,
-        containers, cameras, camera_map
-    )
+     streams_to_show = _determine_streams_to_display(
+          st.session_state.selected_container,
+          st.session_state.selected_camera,
+          containers, cameras, camera_map
+     )
 
-    if streams_to_show:
-        st.subheader("Camera Streams")
-        num_streams = len(streams_to_show)
-        num_columns = min(num_streams, MAX_COLUMNS)
-        cols = st.columns(num_columns)
-        for i, (container, camera_id) in enumerate(streams_to_show):
-            with cols[i % num_columns]:
-                display_single_stream(
-                    container, camera_id,
-                    st.session_state.quality,
-                    main_grid_width, main_grid_height,
-                    proxy_url, camera_map, is_modal=False
-                )
-    elif containers:
-         st.info("Select a valid Worker and Camera combination from the sidebar to view streams.")
+     if streams_to_show:
+          st.subheader("Camera Streams")
+          num_streams = len(streams_to_show)
+          num_columns = min(num_streams, MAX_COLUMNS)
+          cols = st.columns(num_columns)
+          for i, (container, camera_id) in enumerate(streams_to_show):
+               with cols[i % num_columns]:
+                    display_single_stream(
+                         container, camera_id,
+                         st.session_state.quality,
+                         main_grid_width, main_grid_height,
+                         proxy_url, camera_map, is_modal=False
+                    )
+     elif containers:
+          st.info("Select a valid Worker and Camera combination from the sidebar to view streams.")
+
 
 if st.session_state.expanded_stream:
     modal_container, modal_camera_id = st.session_state.expanded_stream
