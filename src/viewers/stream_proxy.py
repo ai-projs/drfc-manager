@@ -1,4 +1,3 @@
-# src/viewers/stream_proxy.py
 import httpx
 import uvicorn
 import os

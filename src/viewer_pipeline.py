@@ -1,4 +1,3 @@
-# src/viewer_pipeline.py
 import os
 import subprocess
 import time
