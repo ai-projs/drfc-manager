@@ -1,7 +1,6 @@
-import os
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, DirectoryPath, FilePath, HttpUrl, AnyHttpUrl, validator
+from pydantic import Field, DirectoryPath, HttpUrl, validator
 
 # Load .env file if it exists
 from dotenv import load_dotenv
@@ -68,6 +67,10 @@ class RedisConfig(BaseSettings):
     subnet: str = Field(default="10.0.1.0/24", description="Network subnet (should not be changed)")
     ip: str = Field(default="10.0.1.15", description="Redis IP address (must match what RoboMaker expects)")
     port: str = Field(default="6379", description="Redis port")
+    
+class AWSConfig(BaseSettings):
+    """AWS Configuration for DeepRacer Training"""
+    region: str = "us-east-1" # Default AWS region
 
 class AppConfig(BaseSettings):
     """Main Application Configuration"""
@@ -75,5 +78,6 @@ class AppConfig(BaseSettings):
     minio: MinioConfig = MinioConfig()
     docker: DockerConfig = DockerConfig()
     deepracer: DeepRacerConfig = DeepRacerConfig()
+    aws: AWSConfig = AWSConfig()
 
 settings = AppConfig()
