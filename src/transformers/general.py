@@ -1,4 +1,5 @@
-from gloe import partial_transformer, condition
+from typing import Any
+from gloe import partial_transformer, condition, transformer
 
 from src.transformers.exceptions.base import BaseExceptionTransformers
 from src.config import settings
@@ -10,9 +11,24 @@ storage_manager = MinioStorageManager(settings)
 
 
 @partial_transformer
-def echo(_, message: str):
+def echo(_, data: Any, message: str) -> Any:
+    """Prints a message and passes the input data through."""
     print(message)
+    return data
 
+def log_and_passthrough(message: str):
+    """Factory function that creates a transformer to log a message and pass data."""
+    @transformer
+    def _log(data: Any) -> Any:
+        print(message)
+        return data
+    _log.name = f"log: {message[:30]}..." # Optional: give the transformer a name
+    return _log
+
+@transformer
+def passthrough(data: Any) -> Any:
+    """A transformer that simply passes data through unchanged."""
+    return data
 
 @condition
 def forward_condition(_condition: bool):
