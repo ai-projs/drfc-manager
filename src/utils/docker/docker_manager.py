@@ -2,7 +2,7 @@ from enum import Enum
 import os
 import subprocess
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Dict
 
 from src.config import settings
 from src.utils.docker.exceptions.base import DockerError
@@ -217,3 +217,84 @@ class DockerManager:
         print(f"\n--- Logs for {service_name} (tail {tail}) ---")
         cmd = ["docker", "compose", "-p", self.project_name, "logs", service_name, "--tail", str(tail)]
         self._run_command(cmd, check=False) 
+
+    def compose_up(self, project_name: str, compose_files: str, scale_options: Optional[Dict[str, int]] = None):
+        """Runs docker compose up command."""
+        cmd = ["docker", "compose"]
+        # Split the compose_files string by the separator used to join them
+        separator = getattr(settings.docker, 'dr_docker_file_sep', ' -f ')
+        files_list = compose_files.split(separator)
+        for file in files_list:
+             if file.strip(): # Avoid empty strings if splitting results in them
+                  # Assume the first part doesn't have the separator prefix
+                  if not cmd[-1] == "-f":
+                       cmd.extend(["-f", file.strip()])
+                  else:
+                       cmd.append(file.strip())
+
+
+        cmd.extend(["-p", project_name, "up", "-d", "--remove-orphans"]) # Consider --force-recreate if needed
+
+        if scale_options:
+            for service, replicas in scale_options.items():
+                cmd.extend(["--scale", f"{service}={replicas}"])
+
+        result = self._run_command(cmd)
+        return result.stdout # Or return the whole result object
+
+    def compose_down(self, project_name: str, compose_files: str, remove_volumes: bool = True):
+        """Runs docker compose down command."""
+        cmd = ["docker", "compose"]
+        # Split files like in compose_up
+        separator = getattr(settings.docker, 'dr_docker_file_sep', ' -f ')
+        files_list = compose_files.split(separator)
+        for file in files_list:
+            if file.strip():
+                 if not cmd[-1] == "-f":
+                      cmd.extend(["-f", file.strip()])
+                 else:
+                      cmd.append(file.strip())
+
+        cmd.extend(["-p", project_name, "down", "--remove-orphans"])
+        if remove_volumes:
+            cmd.append("--volumes")
+
+        result = self._run_command(cmd, check=False) # Allow failure if stack doesn't exist
+        return result.stdout
+
+    def deploy_stack(self, stack_name: str, compose_files: str):
+        """Deploys a stack in Docker Swarm."""
+        cmd = ["docker", "stack", "deploy"]
+        # Split files like in compose_up, but use -c for swarm
+        separator = getattr(settings.docker, 'dr_docker_file_sep', ' -f ') # Swarm might use different separator? Use same for now.
+        files_list = compose_files.split(separator)
+        for file in files_list:
+            if file.strip():
+                 # Swarm uses -c for compose files
+                 if not cmd[-1] == "-c":
+                      cmd.extend(["-c", file.strip()])
+                 else:
+                      cmd.append(file.strip())
+
+        # Add detach flag based on docker version if needed (logic from start.sh)
+        # docker_major_version = ... # Need a way to get docker version
+        # if docker_major_version > 24:
+        #     cmd.append("--detach=true")
+
+        cmd.append(stack_name)
+        result = self._run_command(cmd)
+        return result.stdout
+
+    def remove_stack(self, stack_name: str):
+        """Removes a stack from Docker Swarm."""
+        cmd = ["docker", "stack", "rm", stack_name]
+        result = self._run_command(cmd, check=False) # Allow failure if stack doesn't exist
+        return result.stdout
+
+    def list_services(self, stack_name: str) -> List[str]:
+         """Lists services for a given swarm stack."""
+         cmd = ["docker", "stack", "ps", stack_name, "--format", "{{.Name}}", "--filter", "desired-state=running"]
+         result = self._run_command(cmd, check=False)
+         if result.returncode == 0 and result.stdout:
+              return result.stdout.strip().splitlines()
+         return [] 
