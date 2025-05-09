@@ -11,7 +11,7 @@ from src.transformers.training import (
     upload_training_params_file, start_training, expose_config_envs_from_dataclass,
     check_training_logs_transformer
 )
-from src.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition
+from src.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition, passthrough
 from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
 from src.config import settings
@@ -69,21 +69,21 @@ def train_pipeline(
         check_if_metadata_is_available >>
         check_if_model_exists_transformer(model_name=model_name, overwrite=overwrite) >>
         forward_condition
-        .Then(echo(f"Model prefix 's3://{_bucket_name}/{model_name}' exists and overwrite=False. Aborting."))
+        .Then(echo(data=None, message=f"Model prefix 's3://{_bucket_name}/{model_name}' exists and overwrite=False. Aborting."))
         .Else(
             model_data_to_custom_files >>
-            echo('Data uploaded successfully to custom files') >>
+            echo(data=None, message='Data uploaded successfully to custom files') >>
             copy_object(source_object_name=reward_function_obj_location_custom, dest_object_name=reward_function_obj_location_model) >>
-            echo(f'The reward function copied successfully to models folder at {reward_function_obj_location_model}') >>
+            echo(data=None, message=f'The reward function copied successfully to models folder at {reward_function_obj_location_model}') >>
             upload_training_params_file(model_name=model_name) >>
-            echo('Upload successfully the RoboMaker training configurations') >>
+            echo(data=None, message='Upload successfully the RoboMaker training configurations') >>
             expose_config_envs_from_dataclass(model_name=model_name, bucket_name=_bucket_name) >>
-            echo('Starting model training') >>
+            echo(data=None, message='Starting model training') >>
             start_training >>
-            echo("Docker stack started.") >>
+            echo(data=None, message="Docker stack started.") >>
             If(lambda _: check_logs_after_start)
-            .Then(check_logs_step >> echo("Log check performed."))
-            .Else(echo("Skipping log check."))
+            .Then(check_logs_step >> echo(data=None, message="Log check performed."))
+            .Else(echo(data=None, message="Skipping log check."))
         )
     )
 
