@@ -23,6 +23,8 @@ pydantic-settings = ">=2.0.0"
 fastapi = "^0.115.12"
 uvicorn = "^0.34.2"
 pillow = "^11.2.1"
+tqdm = "^4.67.1"
+streamlit = "^1.45.0"
 
 
 [tool.poetry.plugins.dotenv]
