@@ -1,4 +1,5 @@
 import os
+import datetime
 
 from typing import Dict, Any
 from src.types.env_vars import EnvVars
@@ -8,41 +9,54 @@ from gloe import transformer
 @transformer
 def setup_evaluation_env(data: Dict[str, Any]):
     """
-    Setup environment variables for evaluation using EnvVars dataclass
+    Setup environment variables for evaluation using EvaluationConfig
     and load them into the process environment.
-    Reads necessary parameters (model_name, run_id, etc.) from the input data dictionary.
+    Reads necessary parameters from the config in the input data dictionary.
     """
-    model_name = data.get('model_name')
-    run_id = data.get('run_id')
-    # clone = data.get('clone', False) # Not currently used by this function, but could be extracted
-    # quiet = data.get('quiet', False) # Not currently used by this function, but could be extracted
+    config = data.get('config')
+    if not config:
+        raise ValueError("setup_evaluation_env requires 'config' in the input data dictionary.")
 
-    if model_name is None or run_id is None:
-        raise ValueError("setup_evaluation_env requires 'model_name' and 'run_id' in the input data dictionary.")
-
-    print(f"Setting up environment for evaluation run_id: {run_id}, model: {model_name}")
+    print(f"Setting up environment for evaluation run_id: {config.run_id}, model: {config.model_name}")
     
-    env_vars = EnvVars(
-        DR_RUN_ID=run_id,
-        DR_LOCAL_S3_MODEL_PREFIX=model_name,
-        DR_LOCAL_S3_BUCKET=settings.minio.bucket_name,
-        DRFC_REPO_ABS_PATH=settings.docker.drfc_base_path,
-    )
+    # Apply any overrides to the env_vars
+    config.apply_overrides()
+    
+    # Set evaluation-specific ports with offsets based on run_id
+    base_webviewer_port = 8100  # This should match your base configuration
+    base_robomaker_port = 8080  # This should match your base configuration
+    base_gui_port = 5900       # This should match your base configuration
+    
+    port_offset = config.run_id * 10  # Give each run_id a range of 10 ports
+    
+    # Set the ports with offsets
+    os.environ["DR_WEBVIEWER_PORT"] = str(base_webviewer_port + port_offset)
+    os.environ["DR_ROBOMAKER_EVAL_PORT"] = str(base_robomaker_port + port_offset)
+    os.environ["DR_ROBOMAKER_GUI_PORT"] = str(base_gui_port + port_offset)
     
     try:
-        env_vars.load_to_environment()
+        config.env_vars.load_to_environment()
     except Exception as e:
         print(f"Warning: Failed to load DR_* vars into process environment: {e}")
         raise RuntimeError(f"Failed to set up environment: {e}") from e
 
-    stack_name = f"deepracer-eval-{run_id}"
+    stack_name = f"deepracer-eval-{config.run_id}"
     os.environ["STACK_NAME"] = stack_name
     os.environ["ROBOMAKER_COMMAND"] = "./run.sh run evaluation.launch"
     os.environ["DR_CURRENT_PARAMS_FILE"] = os.getenv("DR_LOCAL_S3_EVAL_PARAMS_FILE", "eval_params.yaml")
 
+    # Pass through all necessary data
+    data.update({
+        "stack_name": stack_name,
+        "model_name": config.model_name,
+        "original_prefix": config.model_name,
+        "clone": config.clone,
+        "quiet": config.quiet
+    })
 
-    data["stack_name"] = stack_name
-    if 'original_prefix' not in data:
-         data['original_prefix'] = model_name
+    eval_time = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+
+    config.env_vars.DR_SIMTRACE_S3_PREFIX = f'{config.model_name}/evaluation-{eval_time}'
+    data["run_timestamp"] = eval_time
 
     return data

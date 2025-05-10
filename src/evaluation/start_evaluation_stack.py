@@ -7,10 +7,9 @@ from src.utils.docker.docker_manager import DockerManager
 from src.utils.docker.exceptions.base import DockerError
 from src.utils.minio.storage_manager import MinioStorageManager
 from src.config import settings
-from src.evaluation.prepare_evaluation_configs import prepare_evaluation_config
 from src.evaluation.get_compose_files import get_compose_files
 from gloe import transformer
-
+from src.types.env_vars import EnvVars
 
 storage_manager = MinioStorageManager(settings)
 docker_manager = DockerManager(settings)
@@ -19,10 +18,14 @@ docker_manager = DockerManager(settings)
 @transformer
 def start_evaluation_stack(data: Dict[str, Any]):
     """Start the evaluation Docker stack using DockerManager and generated config."""
+    config = data.get('config')
+    if not config:
+        raise ValueError("start_evaluation_stack requires 'config' in the input data dictionary.")
+
     stack_name = data['stack_name']
-    model_name = data['model_name']
-    original_prefix = data['original_prefix']
-    clone = data['clone']
+    model_name = config.model_name
+    original_prefix = config.model_name
+    clone = config.clone
 
     print(f"Starting evaluation for model {model_name} in stack {stack_name}")
 
@@ -43,17 +46,16 @@ def start_evaluation_stack(data: Dict[str, Any]):
                     storage_manager.copy_directory(s3_bucket, f"{original_prefix}/ip", f"{cloned_prefix}/ip")
 
                     os.environ['DR_LOCAL_S3_MODEL_PREFIX'] = cloned_prefix
-
                     if hasattr(settings.deepracer, 'local_s3_model_prefix'):
-                         settings.deepracer.local_s3_model_prefix = cloned_prefix
-                    data['model_name'] = cloned_prefix
+                        settings.deepracer.local_s3_model_prefix = cloned_prefix
+                    config.model_name = cloned_prefix
+                    config.env_vars.DR_LOCAL_S3_MODEL_PREFIX = cloned_prefix
                     model_name = cloned_prefix
                 except Exception as e:
-                     print(f"Error cloning model: {e}")
-                     raise RuntimeError(f"Failed to clone model from {original_prefix} to {cloned_prefix}: {e}") from e
+                    print(f"Error cloning model: {e}")
+                    raise RuntimeError(f"Failed to clone model from {original_prefix} to {cloned_prefix}: {e}") from e
 
-
-        eval_config_dict = prepare_evaluation_config()
+        eval_config_dict = EnvVars.generate_evaluation_config()
         yaml_content = yaml.dump(eval_config_dict, default_flow_style=False, default_style="'", explicit_start=True)
         yaml_bytes = io.BytesIO(yaml_content.encode('utf-8'))
         yaml_length = yaml_bytes.getbuffer().nbytes
@@ -76,20 +78,29 @@ def start_evaluation_stack(data: Dict[str, Any]):
         else:
             output = docker_manager.compose_up(project_name=stack_name, compose_files=compose_files_str)
 
-        data["status"] = "success"
-        data["output"] = output
+        data.update({
+            "status": "success",
+            "output": output,
+            "model_name": model_name,
+            "original_prefix": original_prefix
+        })
         return data
 
     except Exception as e:
         print(f"Error starting evaluation stack: {type(e).__name__}: {e}")
-        # Attempt to revert prefix in environment if cloning happened before failure
         if clone and 'cloned_prefix' in locals() and os.environ.get('DR_LOCAL_S3_MODEL_PREFIX') == cloned_prefix:
-             print(f"Attempting to revert environment prefix to {original_prefix} after failure.")
-             os.environ['DR_LOCAL_S3_MODEL_PREFIX'] = original_prefix
-             if hasattr(settings.deepracer, 'local_s3_model_prefix'):
-                  settings.deepracer.local_s3_model_prefix = original_prefix
+            print(f"Attempting to revert environment prefix to {original_prefix} after failure.")
+            os.environ['DR_LOCAL_S3_MODEL_PREFIX'] = original_prefix
+            if hasattr(settings.deepracer, 'local_s3_model_prefix'):
+                settings.deepracer.local_s3_model_prefix = original_prefix
+            config.model_name = original_prefix
+            config.env_vars.DR_LOCAL_S3_MODEL_PREFIX = original_prefix
 
-        data["status"] = "error"
-        data["error"] = str(e)
-        data["type"] = type(e).__name__
+        data.update({
+            "status": "error",
+            "error": str(e),
+            "type": type(e).__name__,
+            "model_name": model_name,
+            "original_prefix": original_prefix
+        })
         return data
