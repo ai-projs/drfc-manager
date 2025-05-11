@@ -58,6 +58,10 @@ class DeepRacerConfig(BaseSettings):
     robomaker_gui_port_base: int = 6900
     robomaker_train_port_base: int = 9080
 
+    pretrained_model: bool = False
+    pretrained_s3_prefix: str = ''
+    local_s3_model_prefix: str = ''
+
 class RedisConfig(BaseSettings):
     """Redis Configuration for DeepRacer Training"""
     model_config = SettingsConfigDict(env_prefix='REDIS_')

@@ -241,7 +241,7 @@ def start_stream_proxy(data: Dict[str, Any]) -> Dict[str, Any]:
          logger.info(f"Using port {available_port} for proxy (original {config.proxy_port} was busy).")
          config.proxy_port = available_port
 
-    proxy_script = Path(__file__).parent / "viewers" / "stream_proxy.py"
+    proxy_script = Path(__file__).parent.parent / "viewers" / "stream_proxy.py"
     if not proxy_script.exists():
         logger.error(f"Stream proxy script not found at {proxy_script}")
         return {"status": "error", "error": f"Stream proxy script not found: {proxy_script}"}
@@ -326,7 +326,7 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Using port {available_port} for Streamlit (original {config.port} was busy).")
         config.port = available_port
 
-    viewer_script = Path(__file__).parent / "viewers" / "streamlit_viewer.py"
+    viewer_script = Path(__file__).parent.parent / "viewers" / "streamlit_viewer.py"
     if not viewer_script.exists():
          logger.error(f"Streamlit viewer script not found at {viewer_script}")
          return {"status": "error", "error": f"Streamlit viewer script not found: {viewer_script}"}
@@ -502,7 +502,7 @@ def start_viewer_pipeline(
         return result
 
     except Exception as e:
-        logger.error(f"--- Unhandled Exception in Viewer Pipeline ---", exc_info=True)
+        logger.error("--- Unhandled Exception in Viewer Pipeline ---", exc_info=True)
         return {"status": "error", "error": str(e), "type": type(e).__name__}
 
 def stop_viewer_pipeline() -> Dict[str, Any]:

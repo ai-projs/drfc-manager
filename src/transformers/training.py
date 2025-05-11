@@ -1,4 +1,4 @@
-from typing import Callable, Dict
+from typing import Callable, Dict, Union, Optional
 import os
 
 from gloe import transformer, partial_transformer
@@ -14,6 +14,8 @@ from src.helpers.training_params import writing_on_temp_training_yml
 from src.utils.docker.docker_manager import DockerManager
 from src.utils.docker.exceptions.base import DockerError
 from src.utils.minio.storage_manager import MinioStorageManager, StorageError
+from src.utils.minio.utilities import function_to_bytes_buffer
+from src.utils.minio.exceptions.file_upload_exception import FileUploadException
 
 from src.config import settings
 
@@ -60,11 +62,18 @@ def upload_metadata(_, model_metadata: ModelMetadata):
 
 
 @partial_transformer
-def upload_reward_function(_, reward_function: Callable[[Dict], float]):
+def upload_reward_function(_, reward_function: Union[Callable[[Dict], float], str], object_name: Optional[str] = None):
+    if object_name is None:
+        object_name = f"{storage_manager.config.custom_files_folder}/reward_function.py"
     try:
-        storage_manager.upload_reward_function(reward_function)
+        if isinstance(reward_function, str):
+            data_bytes = reward_function.encode('utf-8')
+            storage_manager._upload_data(object_name, data_bytes, len(data_bytes), 'text/x-python')
+        else:
+            buffer = function_to_bytes_buffer(reward_function)
+            storage_manager._upload_data(object_name, buffer, buffer.getbuffer().nbytes, 'text/x-python')
     except Exception as e:
-        raise BaseExceptionTransformers("Failed to upload reward function", e)
+        raise FileUploadException("reward_function.py", str(e)) from e
     
 
 def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:

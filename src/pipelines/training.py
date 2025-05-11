@@ -1,22 +1,25 @@
 import os
 import time
-from typing import Callable, Dict
+from typing import Callable, Dict, Optional
 
 from gloe import If, transformer
 from gloe.utils import forward
-
 from src.transformers.training import (
     create_sagemaker_temp_files, check_if_metadata_is_available,
     upload_hyperparameters, upload_metadata, upload_reward_function,
     upload_training_params_file, start_training, expose_config_envs_from_dataclass,
     check_training_logs_transformer
 )
-from src.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition, passthrough
+from src.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition
 from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
 from src.config import settings
 from src.utils.docker.docker_manager import DockerManager, DockerError
 from src.utils.minio.storage_manager import MinioStorageManager
+from src.models.model_operations import create_clone_config, generate_model_name
+from src.models.storage_operations import check_model_exists, delete_model, upload_model_data
+from src.models.env_operations import create_env_config, apply_env_config
+from src.models.data_extraction import extract_model_data
 
 storage_manager = MinioStorageManager(settings)
 
@@ -32,7 +35,8 @@ def train_pipeline(
     model_metadata: ModelMetadata,
     reward_function: Callable[[Dict], float],
     overwrite: bool = False,
-    check_logs_after_start: bool = False
+    check_logs_after_start: bool = False,
+    reward_function_code: Optional[str] = None
 ):
     """
     Orchestrates the training pipeline (using original structure).
@@ -44,6 +48,7 @@ def train_pipeline(
         reward_function (Callable[[Dict], float]): Reward function.
         overwrite (bool, optional): Overwrite existing model data. Defaults to False.
         check_logs_after_start (bool, optional): Check logs after stack start. Defaults to False.
+        reward_function_code (Optional[str], optional): Reward function code. Defaults to None.
     """
     settings.deepracer.run_id = int(os.getenv('DR_RUN_ID', '0'))
     settings.deepracer.local_s3_model_prefix = model_name
@@ -58,7 +63,7 @@ def train_pipeline(
         (
             upload_hyperparameters(hyperparameters=hyperparameters),
             upload_metadata(model_metadata=model_metadata),
-            upload_reward_function(reward_function=reward_function)
+            upload_reward_function(reward_function=reward_function_code or reward_function)
         )
     )
 
@@ -113,3 +118,63 @@ def stop_training_pipeline():
         print(f"Error stopping training stack: {e}")
     except Exception as e:
         print(f"An unexpected error occurred while stopping training: {type(e).__name__} - {e}")
+
+def clone_pipeline(
+    source_model_name: str,
+    new_model_name: Optional[str] = None,
+    delimiter: str = '-',
+    wipe_target: bool = False,
+    custom_hyperparameters: Optional[HyperParameters] = None,
+    custom_model_metadata: Optional[ModelMetadata] = None,
+    custom_reward_function: Optional[Callable[[Dict], float]] = None,
+    check_logs_after_start: bool = False,
+    skip_training: bool = False
+) -> str:
+    """Functional pipeline for cloning a model."""
+    config = create_clone_config(
+        source_model_name,
+        new_model_name,
+        delimiter,
+        wipe_target,
+        custom_hyperparameters,
+        custom_model_metadata,
+        custom_reward_function,
+        check_logs_after_start,
+        skip_training
+    )
+    
+    target_name = generate_model_name(config.source_name, config.target_name, config.delimiter)
+    
+    if not check_model_exists(storage_manager, config.source_name):
+        raise ValueError(f"Source model '{config.source_name}' does not exist")
+    
+    if check_model_exists(storage_manager, target_name):
+        if not config.wipe_target:
+            raise ValueError(f"Target model '{target_name}' exists and wipe_target=False")
+        delete_model(storage_manager, target_name)
+    
+    env_config = create_env_config(config.source_name, target_name)
+    apply_env_config(env_config)
+    
+    model_data = extract_model_data(
+        storage_manager,
+        config.source_name,
+        config.custom_hyperparameters,
+        config.custom_metadata,
+        config.custom_reward_function
+    )
+    
+    upload_model_data(storage_manager, model_data)
+    
+    if not config.skip_training:
+        train_pipeline(
+            model_name=target_name,
+            hyperparameters=model_data.hyperparameters,
+            model_metadata=model_data.metadata,
+            reward_function=model_data.reward_function,
+            overwrite=True,
+            check_logs_after_start=config.check_logs,
+            reward_function_code=model_data.reward_code
+        )
+    
+    return target_name
