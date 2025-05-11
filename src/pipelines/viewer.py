@@ -29,20 +29,36 @@ STREAMLIT_LOG_BASENAME = "streamlit_viewer"
 
 log_formatter = logging.Formatter('%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s')
 
+logger = logging.getLogger('viewer_pipeline')
+logger.setLevel(logging.INFO)
+if os.environ.get('DRFC_DEBUG', 'false').lower() == 'true':
+    logger.setLevel(logging.DEBUG)
+
 handlers = []
+
+# Only add console handler if explicitly requested
+console_logging = os.environ.get('DRFC_CONSOLE_LOGGING', 'false').lower() == 'true'
+
 try:
     log_file_path = TEMP_DIR / "viewer_pipeline.log"
     file_handler = logging.FileHandler(log_file_path, mode='a')
     file_handler.setFormatter(log_formatter)
     handlers.append(file_handler)
-    print(f"Viewer pipeline logging configured to file: {log_file_path}")
+    
+    if console_logging:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(log_formatter)
+        handlers.append(stream_handler)
+        
+    if handlers:
+        logger.info(f"Viewer pipeline logging configured to file: {log_file_path}")
 except OSError as e:
-    print(f"Warning: Could not open log file {LOG_FILE}. Logging might be incomplete. Error: {e}")
-
-logger = logging.getLogger('viewer_pipeline')
-logger.setLevel(logging.INFO)
-if os.environ.get('DRFC_DEBUG', 'false').lower() == 'true':
-    logger.setLevel(logging.DEBUG)
+    logger.warning(f"Could not open log file {LOG_FILE}. Logging might be incomplete. Error: {e}")
+    # Only add fallback console logging if explicitly requested or no handlers
+    if console_logging or not handlers:
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(log_formatter)
+        handlers.append(stream_handler)
 
 for handler in logger.handlers[:]:
     logger.removeHandler(handler)
@@ -87,6 +103,20 @@ def _check_pid_exists(pid: int) -> bool:
     except FileNotFoundError:
          logger.warning("Could not find 'kill' command to check process existence.")
          return False
+
+def _create_wait_for_containers(delay: int):
+    @transformer
+    def wait_for_containers(data: Dict[str, Any]) -> Dict[str, Any]:
+        """Wait for the containers to initialize before proceeding."""
+        if delay > 0:
+            logger.info(f"Waiting {delay} seconds for containers to initialize...")
+            time.sleep(delay)
+        return data
+    return wait_for_containers
+
+def wait_for_containers(delay: int):
+    """Factory function to create a transformer that waits for containers to initialize."""
+    return _create_wait_for_containers(delay)
 
 def _kill_processes_by_pattern(pattern: str) -> Tuple[bool, List[str]]:
     killed_pids = []
@@ -449,70 +479,81 @@ def start_viewer_pipeline(
     quality: Optional[int] = None,
     topic: Optional[str] = None,
     proxy_port: Optional[int] = None,
-    delay: int = DEFAULT_DELAY
+    delay: int = DEFAULT_DELAY,
+    quiet: bool = True
 ) -> Dict[str, Any]:
-    logger.info(f"--- Starting DeepRacer Viewer Pipeline (Update: {update}) ---")
-    logger.info(f"Logging to: {LOG_FILE}")
-
-    if update:
-        stop_viewer_pipeline()
-
-    if delay > 0:
-        logger.info(f"Waiting {delay} seconds for containers to potentially initialize...")
-        time.sleep(delay)
-
-    try:
-        run_id = int(os.getenv('DR_RUN_ID', settings.deepracer.run_id))
-        config = ViewerConfig(run_id=run_id)
-        if port is not None: config.port = port
-        if width is not None: config.width = width
-        if height is not None: config.height = height
-        if quality is not None: config.quality = quality
-        if topic is not None: config.topic = topic
-        if proxy_port is not None: config.proxy_port = proxy_port
-        logger.info(f"Using configuration: {config}")
-
-        logger.info("Step 1: Getting Robomaker containers...")
-        step1_result = get_robomaker_containers(config)
-        if step1_result.get("status") != "success":
-            logger.error(f"Step 1 Failed: {step1_result.get('error')}")
-            result = step1_result
-        else:
-            logger.info("Step 2: Starting stream proxy...")
-            step2_result = start_stream_proxy(step1_result)
-            if step2_result.get("status") != "success":
-                 logger.error(f"Step 2 Failed: {step2_result.get('error')}")
-                 result = step2_result
-            else:
-                 logger.info("Step 3: Starting Streamlit viewer...")
-                 step3_result = start_streamlit_viewer(step2_result)
-                 if step3_result.get("status") != "success":
-                      logger.error(f"Step 3 Failed: {step3_result.get('error')}")
-                 result = step3_result
-
-        if result.get("status") == "success":
-            logger.info(f"--- Viewer Pipeline Started Successfully ---")
-            logger.info(f"Access Streamlit Viewer at: {result.get('viewer_url')}")
-            logger.info(f"Stream Proxy running at: {result.get('proxy_url')}")
-        else:
-            logger.error(f"--- Viewer Pipeline Failed ---")
-            if result.get('details'): logger.error(f"Details: {result.get('details')}")
-            if result.get('type'): logger.error(f"Type: {result.get('type')}")
-
-        return result
-
-    except Exception as e:
-        logger.error("--- Unhandled Exception in Viewer Pipeline ---", exc_info=True)
-        return {"status": "error", "error": str(e), "type": type(e).__name__}
-
-def stop_viewer_pipeline() -> Dict[str, Any]:
-    logger.info("--- Stopping DeepRacer Viewer Pipeline ---")
-    result = stop_viewer_process(None)
-    if result.get("status") == "success":
-        logger.info("--- Viewer Pipeline Stopped Successfully ---")
+    """Start the viewer pipeline.
+    
+    Args:
+        update: Whether to update an existing viewer.
+        port: The Streamlit viewer port (default: 8100).
+        width: The stream width in pixels (default: 480).
+        height: The stream height in pixels (default: 360).
+        quality: The stream quality (1-100) (default: 75).
+        topic: The ROS topic to stream (default: /racecar/deepracer/kvs_stream).
+        proxy_port: The Stream Proxy port (default: 8090).
+        delay: Seconds to wait for RoboMaker to start before starting viewer (default: 5).
+        quiet: If True, suppress console logging (default: True).
+        
+    Returns:
+        Dict with pipeline outcome.
+    """
+    if quiet:
+        os.environ['DRFC_CONSOLE_LOGGING'] = 'false'
     else:
-        logger.error("--- Viewer Pipeline Stop Failed ---")
-        logger.error(f"Error: {result.get('error')}")
-        if result.get('details'): logger.error(f"Details: {result.get('details')}")
-
+        os.environ['DRFC_CONSOLE_LOGGING'] = 'true'
+    
+    # Set default run_id from environment or settings
+    run_id = int(os.environ.get('DR_RUN_ID', getattr(settings.deepracer, 'run_id', 0)))
+    
+    # Get active Docker style from environment or settings
+    settings.docker.dr_docker_style = os.environ.get('DR_DOCKER_STYLE', getattr(settings.docker, 'dr_docker_style', 'compose'))
+    
+    # Use provided values or defaults
+    config = ViewerConfig(
+        run_id=run_id,
+        topic=topic or DEFAULT_TOPIC,
+        width=width or DEFAULT_WIDTH,
+        height=height or DEFAULT_HEIGHT,
+        quality=quality or DEFAULT_QUALITY,
+        port=port or DEFAULT_VIEWER_PORT,
+        proxy_port=proxy_port or DEFAULT_PROXY_PORT
+    )
+    
+    # Set up pipeline steps
+    if update:
+        pipeline = stop_viewer_process >> get_robomaker_containers
+    else:
+        pipeline = get_robomaker_containers
+        
+    pipeline = pipeline >> wait_for_containers(delay) >> start_stream_proxy >> start_streamlit_viewer
+    
+    logger.info(f"Starting viewer pipeline for Run ID: {run_id}")
+    result = pipeline(config)
+    logger.info("Viewer pipeline complete.")
+    
     return result
+
+def stop_viewer_pipeline(quiet: bool = True) -> Dict[str, Any]:
+    """
+    Stop the viewer pipeline and kill associated processes.
+    
+    Args:
+        quiet: If True, suppress console logging (default: True)
+        
+    Returns:
+        Dict with pipeline outcome
+    """
+    if quiet:
+        os.environ['DRFC_CONSOLE_LOGGING'] = 'false'
+    else:
+        os.environ['DRFC_CONSOLE_LOGGING'] = 'true'
+        
+    logger.info("Stopping DeepRacer Viewer Pipeline")
+    try:
+        result = stop_viewer_process(None)
+        logger.info("Viewer pipeline stopped.")
+        return result
+    except Exception as e:
+        logger.error("Error stopping viewer pipeline", exc_info=True)
+        return {"status": "error", "error": str(e), "type": type(e).__name__}

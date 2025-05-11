@@ -5,6 +5,7 @@ from typing import Dict, Any
 
 from src.config import settings
 from src.utils.docker.exceptions.base import DockerError
+from src.utils.logging import logger
 
 class RedisManager:
     def __init__(self, config=settings):
@@ -69,7 +70,7 @@ class RedisManager:
         try:
             with open(temp_compose_path, 'w') as file:
                 yaml.dump(modified_compose_data, file)
-            print(f"Created modified compose file with Redis at {temp_compose_path}")
+            logger.info(f"Created modified compose file with Redis at {temp_compose_path}")
             return temp_compose_path
         except Exception as e:
             os.remove(temp_compose_path)

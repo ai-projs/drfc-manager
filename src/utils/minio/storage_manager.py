@@ -16,6 +16,7 @@ from src.utils.minio.utilities import (
 )
 from src.utils.minio.exceptions.file_upload_exception import FileUploadException, FunctionConversionException
 from src.utils.minio.storage_client import StorageClient
+from src.utils.logging import logger
 
 class StorageError(Exception):
     """Custom exception for storage-related errors."""
@@ -37,9 +38,9 @@ class MinioStorageManager(StorageClient):
             found = self.client.bucket_exists(self._config.bucket_name)
             if not found:
                 self.client.make_bucket(self._config.bucket_name)
-                print(f"Created MinIO bucket: {self._config.bucket_name}")
+                logger.info(f"Created MinIO bucket: {self._config.bucket_name}")
             else:
-                print(f"Using existing MinIO bucket: {self._config.bucket_name}")
+                logger.info(f"Using existing MinIO bucket: {self._config.bucket_name}")
 
         except S3Error as e:
             raise StorageError(f"MinIO S3 Error: {e}") from e
@@ -63,7 +64,7 @@ class MinioStorageManager(StorageClient):
                 length=length,
                 content_type=content_type
             )
-            print(f"Successfully uploaded {object_name} to bucket {self._config.bucket_name}")
+            logger.info(f"Successfully uploaded {object_name} to bucket {self._config.bucket_name}")
         except S3Error as e:
             raise StorageError(f"Failed to upload {object_name} to MinIO: {e}") from e
         except Exception as e:
@@ -109,7 +110,7 @@ class MinioStorageManager(StorageClient):
         """Uploads a file from the local filesystem."""
         try:
             self.client.fput_object(self._config.bucket_name, object_name, local_path)
-            print(f"Successfully uploaded local file {local_path} to {object_name}")
+            logger.info(f"Successfully uploaded local file {local_path} to {object_name}")
         except S3Error as e:
             raise StorageError(f"Failed to upload local file {local_path} to MinIO: {e}") from e
         except Exception as e:
@@ -138,7 +139,7 @@ class MinioStorageManager(StorageClient):
                 dest_object_name,
                 source
             )
-            print(f"Successfully copied {source_object_name} to {dest_object_name}")
+            logger.info(f"Successfully copied {source_object_name} to {dest_object_name}")
         except Exception as e:
             raise StorageError(f"Unexpected error copying {source_object_name}: {str(e)}") from e
 

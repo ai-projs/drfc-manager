@@ -4,6 +4,7 @@ from gloe import partial_transformer, condition, transformer
 from src.transformers.exceptions.base import BaseExceptionTransformers
 from src.config import settings
 from src.utils.minio.storage_manager import MinioStorageManager
+from src.utils.logging import logger
 
 sagemaker_temp_dir = '/tmp/sagemaker'
 work_directory = '/tmp/teste'
@@ -14,6 +15,7 @@ storage_manager = MinioStorageManager(settings)
 def echo(_, data: Any, message: str) -> Any:
     """Prints a message and passes the input data through."""
     print(message)
+    logger.info(message)
     return data
 
 def log_and_passthrough(message: str):
@@ -21,6 +23,7 @@ def log_and_passthrough(message: str):
     @transformer
     def _log(data: Any) -> Any:
         print(message)
+        logger.info(message)
         return data
     _log.name = f"log: {message[:30]}..." # Optional: give the transformer a name
     return _log
@@ -50,11 +53,11 @@ def check_if_model_exists_transformer(_, model_name: str, overwrite: bool) -> bo
     exists = storage_manager.object_exists(f"{prefix}model.pb")
 
     if exists and not overwrite:
-        print(f"Model prefix {prefix} exists and overwrite is False.")
+        logger.info(f"Model prefix {prefix} exists and overwrite is False.")
         return True
     elif exists and overwrite:
-        print(f"Model prefix {prefix} exists but overwrite is True. Proceeding (Overwrite logic TBD).")
+        logger.info(f"Model prefix {prefix} exists but overwrite is True. Proceeding (Overwrite logic TBD).")
         return False
     else:
-        print(f"Model prefix {prefix} does not exist. Proceeding.")
+        logger.info(f"Model prefix {prefix} does not exist. Proceeding.")
         return False

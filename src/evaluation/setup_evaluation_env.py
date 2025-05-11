@@ -5,6 +5,7 @@ from typing import Dict, Any
 from src.types.env_vars import EnvVars
 from src.config import settings
 from gloe import transformer
+from src.utils.logging import logger
 
 @transformer
 def setup_evaluation_env(data: Dict[str, Any]):
@@ -17,7 +18,7 @@ def setup_evaluation_env(data: Dict[str, Any]):
     if not config:
         raise ValueError("setup_evaluation_env requires 'config' in the input data dictionary.")
 
-    print(f"Setting up environment for evaluation run_id: {config.run_id}, model: {config.model_name}")
+    logger.info(f"Setting up environment for evaluation run_id: {config.run_id}, model: {config.model_name}")
     
     # Apply any overrides to the env_vars
     config.apply_overrides()
@@ -37,7 +38,7 @@ def setup_evaluation_env(data: Dict[str, Any]):
     try:
         config.env_vars.load_to_environment()
     except Exception as e:
-        print(f"Warning: Failed to load DR_* vars into process environment: {e}")
+        logger.warning(f"Failed to load DR_* vars into process environment: {e}")
         raise RuntimeError(f"Failed to set up environment: {e}") from e
 
     stack_name = f"deepracer-eval-{config.run_id}"

@@ -16,6 +16,7 @@ from src.utils.docker.exceptions.base import DockerError
 from src.utils.minio.storage_manager import MinioStorageManager, StorageError
 from src.utils.minio.utilities import function_to_bytes_buffer
 from src.utils.minio.exceptions.file_upload_exception import FileUploadException
+from src.utils.logging import logger
 
 from src.config import settings
 
@@ -87,18 +88,18 @@ def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
 def upload_training_params_file(_, model_name: str):
     local_yaml_path = None
     try:
-        print("Generating local training_params.yaml...")
+        logger.info("Generating local training_params.yaml...")
         relevant_envs = EnvVars(DR_LOCAL_S3_MODEL_PREFIX=model_name, DR_LOCAL_S3_BUCKET=settings.minio.bucket_name)
         relevant_envs.load_to_environment()
 
         yaml_key, local_yaml_path = writing_on_temp_training_yml(model_name)
-        print(f"Generated {local_yaml_path}, uploading to {yaml_key}")
+        logger.info(f"Generated {local_yaml_path}, uploading to {yaml_key}")
 
         storage_manager.upload_local_file(local_yaml_path, yaml_key)
 
         if not storage_manager.object_exists(yaml_key):
             raise StorageError(f"Verification failed: {yaml_key} not found after upload.")
-        print(f"Verified: Training params file exists at {yaml_key}")
+        logger.info(f"Verified: Training params file exists at {yaml_key}")
 
     except Exception as e:
         raise BaseExceptionTransformers("Failed to upload training parameters file", e)
@@ -106,30 +107,30 @@ def upload_training_params_file(_, model_name: str):
         if local_yaml_path and os.path.exists(local_yaml_path):
             try:
                 os.remove(local_yaml_path)
-                print(f"Cleaned up local file: {local_yaml_path}")
+                logger.info(f"Cleaned up local file: {local_yaml_path}")
             except OSError as e:
-                print(f"Warning: Failed to remove temporary file {local_yaml_path}: {e}")
+                logger.warning(f"Failed to remove temporary file {local_yaml_path}: {e}")
 
 @transformer
 def start_training(_):
     try:
-        print("Attempting to start DeepRacer Docker stack...")
+        logger.info("Attempting to start DeepRacer Docker stack...")
         docker_manager.cleanup_previous_run(prune_system=True)
         docker_manager.start_deepracer_stack()
-        print("DeepRacer Docker stack started successfully.")
+        logger.info("DeepRacer Docker stack started successfully.")
     except DockerError as e:
-        print(f"DockerError starting stack: {e}")
+        logger.error(f"DockerError starting stack: {e}")
         raise BaseExceptionTransformers("Docker stack startup failed", e)
     except Exception as e:
-        print(f"Unexpected error starting stack: {type(e).__name__}: {e}")
+        logger.error(f"Unexpected error starting stack: {type(e).__name__}: {e}")
         raise BaseExceptionTransformers("Unexpected error during stack startup", e)
 
 @transformer
 def stop_training_transformer(_):
     try:
-        print("Stopping DeepRacer Docker stack via transformer...")
+        logger.info("Stopping DeepRacer Docker stack via transformer...")
         docker_manager.cleanup_previous_run(prune_system=False)
-        print("DeepRacer Docker stack stopped via transformer.")
+        logger.info("DeepRacer Docker stack stopped via transformer.")
     except Exception as e:
         raise BaseExceptionTransformers("It was not possible to stop the training via transformer", e)
 
@@ -139,10 +140,10 @@ def check_training_logs_transformer(_):
         docker_manager.check_logs("redis")
         docker_manager.check_logs("rl_coach")
         docker_manager.check_logs("robomaker")
-        print("Log check complete.")
+        logger.info("Log check complete.")
         return True
     except Exception as e:
-        print(f"Error checking logs: {e}")
+        logger.error(f"Error checking logs: {e}")
         return False
     
 
@@ -160,6 +161,6 @@ def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> N
              DR_AWS_APP_REGION=os.getenv('DR_AWS_APP_REGION', 'us-east-1'),
         )
         env_loader.load_to_environment()
-        print(f"Loaded DR_* vars for model '{model_name}' into current process environment.")
+        logger.info(f"Loaded DR_* vars for model '{model_name}' into current process environment.")
     except Exception as e:
-        print(f"Warning: Failed to load DR_* vars into process environment: {e}")
+        logger.warning(f"Failed to load DR_* vars into process environment: {e}")

@@ -13,30 +13,30 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger('drfc')
+logger.propagate = False
 
 LOG_DIR = os.path.join(tempfile.gettempdir(), "drfc_logs")
 os.makedirs(LOG_DIR, exist_ok=True)
 
-def setup_logging(run_id: Optional[int] = None, model_name: Optional[str] = None, quiet: bool = False):
+def setup_logging(run_id: Optional[int] = None, model_name: Optional[str] = None, quiet: bool = True):
     """
     Setup logging configuration with file output.
     
     Args:
         run_id: Run ID to include in log filename
         model_name: Model name to include in log filename
-        quiet: If True, only warnings and errors go to console
+        quiet: If True, only warnings and errors go to console (default: True)
     """
+    logger.handlers.clear()    
 
-    logger.handlers.clear()
+    logger.addHandler(logging.NullHandler())
     
-
-    console_level = logging.WARNING if quiet else logging.INFO
-    
-    console = logging.StreamHandler(sys.stdout)
-    console.setLevel(console_level)
-    console_formatter = logging.Formatter('%(message)s')
-    console.setFormatter(console_formatter)
-    logger.addHandler(console)
+    if not quiet:
+        console = logging.StreamHandler(sys.stdout)
+        console.setLevel(logging.INFO)
+        console_formatter = logging.Formatter('%(message)s')
+        console.setFormatter(console_formatter)
+        logger.addHandler(console)
     
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     components = ["drfc"]
@@ -55,8 +55,10 @@ def setup_logging(run_id: Optional[int] = None, model_name: Optional[str] = None
     file_handler.setFormatter(file_formatter)
     logger.addHandler(file_handler)
     
-    logger.info(f"Logging to file: {log_path}")
+    logger.debug(f"Logging to file: {log_path}")
     return log_path
+
+logger.addHandler(logging.NullHandler())
 
 def get_recent_logs(n: int = 5):
     """Get paths to the n most recent log files."""
@@ -82,4 +84,4 @@ def log_execution(func):
         except Exception as e:
             logger.exception(f"Error in {func.__name__}: {e}")
             raise
-    return wrapper
+    return wrapper 

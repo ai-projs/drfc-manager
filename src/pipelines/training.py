@@ -20,6 +20,7 @@ from src.models.model_operations import create_clone_config, generate_model_name
 from src.models.storage_operations import check_model_exists, delete_model, upload_model_data
 from src.models.env_operations import create_env_config, apply_env_config
 from src.models.data_extraction import extract_model_data
+from src.utils.logging import logger, setup_logging
 
 storage_manager = MinioStorageManager(settings)
 
@@ -36,7 +37,8 @@ def train_pipeline(
     reward_function: Callable[[Dict], float],
     overwrite: bool = False,
     check_logs_after_start: bool = False,
-    reward_function_code: Optional[str] = None
+    reward_function_code: Optional[str] = None,
+    quiet: bool = True
 ):
     """
     Orchestrates the training pipeline (using original structure).
@@ -49,12 +51,15 @@ def train_pipeline(
         overwrite (bool, optional): Overwrite existing model data. Defaults to False.
         check_logs_after_start (bool, optional): Check logs after stack start. Defaults to False.
         reward_function_code (Optional[str], optional): Reward function code. Defaults to None.
+        quiet (bool, optional): If True, suppress console output. Defaults to True.
     """
     settings.deepracer.run_id = int(os.getenv('DR_RUN_ID', '0'))
     settings.deepracer.local_s3_model_prefix = model_name
 
     _custom_files_folder = settings.minio.custom_files_folder
     _bucket_name = settings.minio.bucket_name
+
+    setup_logging(run_id=settings.deepracer.run_id, model_name=model_name, quiet=quiet)
 
     reward_function_obj_location_custom = f'{_custom_files_folder}/reward_function.py'
     reward_function_obj_location_model = f'{model_name}/reward_function.py'
@@ -92,9 +97,9 @@ def train_pipeline(
         )
     )
 
-    print(f"Starting training pipeline for model: {model_name}, Run ID: {settings.deepracer.run_id}")
+    logger.info(f"Starting training pipeline for model: {model_name}, Run ID: {settings.deepracer.run_id}")
     training_start_pipeline(None)
-    print("Training pipeline finished.")
+    logger.info("Training pipeline finished.")
 
 def stop_training_pipeline():
     """
@@ -103,21 +108,21 @@ def stop_training_pipeline():
     Uses the run_id from the current settings (or DR_RUN_ID env var)
     to identify the correct Docker Compose project.
     """
-    print("Attempting to stop training stack...")
+    logger.info("Attempting to stop training stack...")
     try:
         current_run_id = int(os.getenv('DR_RUN_ID', settings.deepracer.run_id))
         settings.deepracer.run_id = current_run_id
-        print(f"Targeting Run ID: {current_run_id}")
+        logger.info(f"Targeting Run ID: {current_run_id}")
 
         docker_manager = DockerManager(settings)
 
         docker_manager.cleanup_previous_run(prune_system=False)
 
-        print("Training stack stopped successfully.")
+        logger.info("Training stack stopped successfully.")
     except DockerError as e:
-        print(f"Error stopping training stack: {e}")
+        logger.error(f"Error stopping training stack: {e}")
     except Exception as e:
-        print(f"An unexpected error occurred while stopping training: {type(e).__name__} - {e}")
+        logger.error(f"An unexpected error occurred while stopping training: {type(e).__name__} - {e}")
 
 def clone_pipeline(
     source_model_name: str,
@@ -128,7 +133,8 @@ def clone_pipeline(
     custom_model_metadata: Optional[ModelMetadata] = None,
     custom_reward_function: Optional[Callable[[Dict], float]] = None,
     check_logs_after_start: bool = False,
-    skip_training: bool = False
+    skip_training: bool = False,
+    quiet: bool = True
 ) -> str:
     """Functional pipeline for cloning a model."""
     config = create_clone_config(
@@ -174,7 +180,8 @@ def clone_pipeline(
             reward_function=model_data.reward_function,
             overwrite=True,
             check_logs_after_start=config.check_logs,
-            reward_function_code=model_data.reward_code
+            reward_function_code=model_data.reward_code,
+            quiet=quiet
         )
     
     return target_name

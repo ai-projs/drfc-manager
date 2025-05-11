@@ -4,6 +4,7 @@ from src.types.hyperparameters import HyperParameters
 from src.types.model_metadata import ModelMetadata
 from src.models.model_operations import ModelData
 from src.utils.minio.storage_client import StorageClient
+from src.utils.logging import logger
 
 def extract_model_data(
     storage_client: StorageClient,
@@ -92,7 +93,7 @@ def extract_reward_function(
         return reward_function, reward_code
         
     except Exception as e:
-        print(f"Warning: Failed to load reward function from source model: {e}")
+        logger.warning(f"Failed to load reward function from source model: {e}")
         return create_default_reward_function(), None
 
 def create_default_reward_function() -> Callable[[Dict], float]:

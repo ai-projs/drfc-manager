@@ -5,6 +5,7 @@ from src.utils.str_to_bool import str2bool
 # Import the enum and the utility function
 from src.types.docker import ComposeFileType
 from src.utils.docker.utilities import _adjust_composes_file_names
+from src.utils.logging import logger
 
 def get_compose_files() -> str:
     """
@@ -42,7 +43,7 @@ def get_compose_files() -> str:
         try:
             os.makedirs(mount_dir, exist_ok=True)
         except OSError as e:
-            print(f"Warning: Could not create log mount directory {mount_dir}: {e}")
+            logger.warning(f"Could not create log mount directory {mount_dir}: {e}")
     else:
          os.environ.pop('DR_MOUNT_DIR', None)
 
@@ -51,7 +52,7 @@ def get_compose_files() -> str:
     if host_x_enabled:
         display = os.environ.get('DISPLAY')
         if not display:
-            print("Warning: DR_HOST_X is true, but DISPLAY environment variable is not set.")
+            logger.warning("DR_HOST_X is true, but DISPLAY environment variable is not set.")
         else:
             is_wsl2 = 'microsoft' in os.uname().release.lower() and 'wsl2' in os.uname().release.lower()
             if is_wsl2:
@@ -60,7 +61,7 @@ def get_compose_files() -> str:
                 xauthority = os.environ.get('XAUTHORITY')
                 default_xauthority = os.path.expanduser("~/.Xauthority")
                 if not xauthority and not os.path.exists(default_xauthority):
-                    print(f"Warning: XAUTHORITY not set and {default_xauthority} does not exist. GUI may fail.")
+                    logger.warning(f"XAUTHORITY not set and {default_xauthority} does not exist. GUI may fail.")
                 elif not xauthority:
                     os.environ['XAUTHORITY'] = default_xauthority
                 compose_types.append(ComposeFileType.XORG)

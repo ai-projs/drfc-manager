@@ -10,6 +10,7 @@ from src.config import settings
 from src.evaluation.get_compose_files import get_compose_files
 from gloe import transformer
 from src.types.env_vars import EnvVars
+from src.utils.logging import logger
 
 storage_manager = MinioStorageManager(settings)
 docker_manager = DockerManager(settings)
@@ -27,7 +28,7 @@ def start_evaluation_stack(data: Dict[str, Any]):
     original_prefix = config.model_name
     clone = config.clone
 
-    print(f"Starting evaluation for model {model_name} in stack {stack_name}")
+    logger.info(f"Starting evaluation for model {model_name} in stack {stack_name}")
 
     try:
         docker_style = os.environ.get('DR_DOCKER_STYLE', 'compose').lower()
@@ -38,7 +39,7 @@ def start_evaluation_stack(data: Dict[str, Any]):
 
         if clone:
             cloned_prefix = f"{original_prefix}-E"
-            print(f"Cloning requested: {original_prefix} -> {cloned_prefix}")
+            logger.info(f"Cloning requested: {original_prefix} -> {cloned_prefix}")
             s3_bucket = os.environ.get('DR_LOCAL_S3_BUCKET')
             if model_name != cloned_prefix:
                 try:
@@ -52,7 +53,7 @@ def start_evaluation_stack(data: Dict[str, Any]):
                     config.env_vars.DR_LOCAL_S3_MODEL_PREFIX = cloned_prefix
                     model_name = cloned_prefix
                 except Exception as e:
-                    print(f"Error cloning model: {e}")
+                    logger.error(f"Error cloning model: {e}")
                     raise RuntimeError(f"Failed to clone model from {original_prefix} to {cloned_prefix}: {e}") from e
 
         eval_config_dict = EnvVars.generate_evaluation_config()
@@ -87,9 +88,9 @@ def start_evaluation_stack(data: Dict[str, Any]):
         return data
 
     except Exception as e:
-        print(f"Error starting evaluation stack: {type(e).__name__}: {e}")
+        logger.error(f"Error starting evaluation stack: {type(e).__name__}: {e}")
         if clone and 'cloned_prefix' in locals() and os.environ.get('DR_LOCAL_S3_MODEL_PREFIX') == cloned_prefix:
-            print(f"Attempting to revert environment prefix to {original_prefix} after failure.")
+            logger.info(f"Attempting to revert environment prefix to {original_prefix} after failure.")
             os.environ['DR_LOCAL_S3_MODEL_PREFIX'] = original_prefix
             if hasattr(settings.deepracer, 'local_s3_model_prefix'):
                 settings.deepracer.local_s3_model_prefix = original_prefix

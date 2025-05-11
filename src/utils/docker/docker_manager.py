@@ -8,6 +8,7 @@ from src.config import settings
 from src.utils.docker.exceptions.base import DockerError
 from src.utils.redis.manager import RedisManager
 from src.types.docker import ComposeFileType
+from src.utils.logging import logger
 
 
 class DockerManager:
@@ -19,7 +20,7 @@ class DockerManager:
         self.redis_manager = RedisManager(config)
         
     def _run_command(self, command: List[str], check: bool = True, capture: bool = True) -> subprocess.CompletedProcess:
-        print(f"Executing: {' '.join(command)}")
+        logger.debug(f"Executing: {' '.join(command)}")
         try:
             result = subprocess.run(
                 command,
@@ -29,9 +30,9 @@ class DockerManager:
                 env=os.environ.copy()
             )
             if capture and result.stdout:
-                print(f"Stdout:\n{result.stdout}")
+                logger.debug(f"Stdout:\n{result.stdout}")
             if capture and result.stderr:
-                print(f"Stderr:\n{result.stderr}")
+                logger.debug(f"Stderr:\n{result.stderr}")
             return result
         except subprocess.CalledProcessError as e:
             raise DockerError(
@@ -47,7 +48,7 @@ class DockerManager:
         
     def cleanup_previous_run(self, prune_system: bool = True):
         """Stop existing containers and optionally prune Docker resources."""
-        print(f"Cleaning up previous run for project {self.project_name}...")
+        logger.info(f"Cleaning up previous run for project {self.project_name}...")
         
         self._run_command(
             ["docker", "compose", "-p", self.project_name, "down", "--remove-orphans", "--volumes"],
@@ -56,7 +57,7 @@ class DockerManager:
         time.sleep(2)
 
         if prune_system:
-            print("Pruning unused Docker resources...")
+            logger.info("Pruning unused Docker resources...")
             self._run_command(["docker", "network", "prune", "-f"], check=False)
             self._run_command(["docker", "system", "prune", "-f"], check=False)
             time.sleep(2)
@@ -70,10 +71,10 @@ class DockerManager:
         result = subprocess.run(check_cmd, check=False, capture_output=True)
         
         if result.returncode == 0:
-            print(f"Network '{network_name}' already exists.")
+            logger.info(f"Network '{network_name}' already exists.")
             return
             
-        print(f"Creating Docker network '{network_name}' with subnet {subnet}...")
+        logger.info(f"Creating Docker network '{network_name}' with subnet {subnet}...")
         self._run_command(["docker", "network", "create", f"--subnet={subnet}", network_name])
 
     def _get_compose_file_paths(self, file_types: List[ComposeFileType]) -> List[str]:
@@ -105,7 +106,7 @@ class DockerManager:
     def _setup_multiworker_env(self) -> bool:
         """Set up environment for multiple workers."""
         if not self.config.docker.drfc_base_path or not os.path.isdir(self.config.docker.drfc_base_path):
-            print(f"WARNING: DRFC_REPO_ABS_PATH is not set or invalid. Skipping robomaker-multi.")
+            logger.warning(f"DRFC_REPO_ABS_PATH is not set or invalid. Skipping robomaker-multi.")
             return False
             
         os.environ["DR_DIR"] = str(self.config.docker.drfc_base_path)
@@ -119,10 +120,10 @@ class DockerManager:
         try:
             os.makedirs(os.path.dirname(comms_dir), exist_ok=True)
             os.makedirs(comms_dir, exist_ok=True)
-            print(f"Created comms dir: {comms_dir}")
+            logger.info(f"Created comms dir: {comms_dir}")
             return True
         except OSError as e:
-            print(f"WARNING: Failed to create comms directory '{comms_dir}': {e}. Multi-worker may fail.")
+            logger.warning(f"Failed to create comms directory '{comms_dir}': {e}. Multi-worker may fail.")
             return False
 
     def _set_runtime_env_vars(self, workers: int):
@@ -142,18 +143,18 @@ class DockerManager:
             os.environ["ROBOMAKER_COMMAND"] = "/opt/simapp/run.sh multi distributed_training.launch"
         else:
             os.environ["ROBOMAKER_COMMAND"] = "/opt/simapp/run.sh run distributed_training.launch"
-        print(f"ROBOMAKER_COMMAND set to: {os.environ.get('ROBOMAKER_COMMAND')}")
+        logger.info(f"ROBOMAKER_COMMAND set to: {os.environ.get('ROBOMAKER_COMMAND')}")
 
     def start_deepracer_stack(self):
         """Start the DeepRacer Docker stack with all required services."""
         workers = self.config.deepracer.workers
-        print(f"Starting DeepRacer stack for project {self.project_name} with {workers} workers...")
+        logger.info(f"Starting DeepRacer stack for project {self.project_name} with {workers} workers...")
 
         self._ensure_redis_network()
 
         compose_files, multi_added = self._prepare_compose_files(workers)
         temp_compose_path = compose_files[0]
-        print(f"Using compose files: {compose_files}")
+        logger.info(f"Using compose files: {compose_files}")
 
         # 3. Set runtime environment variables
         self._set_runtime_env_vars(workers)
@@ -167,7 +168,7 @@ class DockerManager:
             if workers > 1 and multi_added:
                 cmd.extend(["--scale", f"robomaker={workers}"])
             elif workers > 1 and not multi_added:
-                print(f"WARNING: Not scaling RoboMaker because robomaker-multi config was not included.")
+                logger.warning("Not scaling RoboMaker because robomaker-multi config was not included.")
             
             self._run_command(cmd)
             
@@ -183,13 +184,13 @@ class DockerManager:
         if file_path and os.path.exists(file_path):
             try:
                 os.remove(file_path)
-                print(f"Cleaned up temporary file {file_path}")
+                logger.info(f"Cleaned up temporary file {file_path}")
             except OSError as e:
-                print(f"Warning: Failed to remove temporary file {file_path}: {e}")
+                logger.warning(f"Failed to remove temporary file {file_path}: {e}")
 
     def check_container_status(self, expected_workers: int):
         """Check if the expected containers are running."""
-        print("Checking container status...")
+        logger.info("Checking container status...")
         time.sleep(5)
         
         self._run_command(["docker", "compose", "-p", self.project_name, "ps"], check=False)
@@ -204,19 +205,19 @@ class DockerManager:
         running_ids = result.stdout.strip().splitlines() if result.stdout else []
 
         if running_ids:
-            print(f"Found running RoboMaker containers: {len(running_ids)}")
+            logger.info(f"Found running RoboMaker containers: {len(running_ids)}")
             if len(running_ids) == expected_workers:
-                print(f"Successfully started {expected_workers} RoboMaker workers.")
+                logger.info(f"Successfully started {expected_workers} RoboMaker workers.")
             else:
-                print(f"WARNING: Expected {expected_workers} workers, but found {len(running_ids)} running.")
+                logger.warning(f"Expected {expected_workers} workers, but found {len(running_ids)} running.")
         else:
-            print("WARNING: No RoboMaker containers are running.")
+            logger.warning("No RoboMaker containers are running.")
 
     def check_logs(self, service_name: str, tail: int = 30):
         """Get logs for a specific service."""
-        print(f"\n--- Logs for {service_name} (tail {tail}) ---")
+        logger.info(f"\n--- Logs for {service_name} (tail {tail}) ---")
         cmd = ["docker", "compose", "-p", self.project_name, "logs", service_name, "--tail", str(tail)]
-        self._run_command(cmd, check=False) 
+        self._run_command(cmd, check=False)
 
     def compose_up(self, project_name: str, compose_files: str, scale_options: Optional[Dict[str, int]] = None):
         """Runs docker compose up command."""

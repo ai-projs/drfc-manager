@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import os
 import io
 import datetime
@@ -10,7 +10,6 @@ from src.utils.docker.docker_manager import DockerManager
 from src.utils.docker.exceptions.base import DockerError
 from src.utils.minio.storage_manager import MinioStorageManager
 from src.types.env_vars import EnvVars
-from src.evaluation.log_filter import LogFilter
 from src.utils.logging import logger, setup_logging
 
 storage_manager = MinioStorageManager(settings)
@@ -18,7 +17,7 @@ docker_manager = DockerManager(settings)
 
 def evaluate_pipeline(
     model_name: str,
-    quiet: bool = False,
+    quiet: bool = True,
     clone: bool = False,
     run_id: Optional[int] = None,
     world_name: Optional[str] = None,
@@ -36,7 +35,7 @@ def evaluate_pipeline(
     
     Args:
         model_name (str): Name of the model prefix to evaluate.
-        quiet (bool): If True, suppress verbose output.
+        quiet (bool): If True, suppress verbose output. Defaults to True.
         clone (bool): Copy model into new prefix (<model_name>-E) before evaluating.
         run_id (int, optional): Run ID for the stack name.
         world_name (str, optional): Override the evaluation world/track.
@@ -153,9 +152,8 @@ def evaluate_pipeline(
             else:
                 output = docker_manager.compose_up(project_name=stack_name, compose_files=compose_files_str)
                 
-            filtered_output = LogFilter.filter_docker_output(output)
-            if filtered_output.strip():
-                logger.debug(filtered_output)
+            if output and output.strip():
+                logger.debug(output)
             logger.info(f"Evaluation started for {model_name}")
         
         result = {
@@ -211,9 +209,8 @@ def stop_evaluation_pipeline(run_id: Optional[int] = None) -> Dict[str, Any]:
     result = stop_evaluation_stack({"stack_name": stack_name})
     
     if result and "output" in result and result["output"]:
-        filtered_output = LogFilter.filter_docker_output(result["output"])
-        if filtered_output.strip():
-            logger.debug(filtered_output)
+        if result["output"].strip():
+            logger.debug(result["output"])
     
     logger.info("Stop evaluation completed")
     return result

@@ -28,22 +28,34 @@ HEALTH_CHECK_PING_TIMEOUT = 5.0
 
 log_formatter = logging.Formatter('%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s')
 
-stream_handler = logging.StreamHandler()
-stream_handler.setFormatter(log_formatter)
+# Only add console handler if explicitly requested
+console_logging = os.environ.get('DRFC_CONSOLE_LOGGING', 'false').lower() == 'true'
+handlers = []
+
+if console_logging:
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(log_formatter)
+    handlers.append(stream_handler)
 
 try:
     file_handler = logging.FileHandler(LOG_FILE, mode='a')
     file_handler.setFormatter(log_formatter)
-    handlers = [stream_handler, file_handler]
+    handlers.append(file_handler)
 except OSError as e:
-    print(f"Warning: Could not open log file {LOG_FILE}. Logging to console only. Error: {e}")
-    handlers = [stream_handler]
+    if not console_logging:
+        # Add stream handler as fallback only if no console logging was configured
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(log_formatter)
+        handlers.append(stream_handler)
 
 logger = logging.getLogger('stream_proxy')
 logger.setLevel(logging.INFO)
 for handler in handlers:
     logger.addHandler(handler)
 logger.propagate = False
+
+if len(handlers) == 1 and isinstance(handlers[0], logging.StreamHandler) and not console_logging:
+    logger.warning(f"Could not open log file {LOG_FILE}. Logging to console only.")
 
 app = FastAPI(title="DeepRacer Stream Proxy")
 
