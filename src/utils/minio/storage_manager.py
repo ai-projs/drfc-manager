@@ -1,5 +1,6 @@
 from io import BytesIO
-from typing import Callable, Dict, Optional, Union
+from typing import Callable, Dict, Optional, Union, Any
+import json
 
 from minio import Minio
 from minio.error import S3Error
@@ -14,35 +15,41 @@ from src.utils.minio.utilities import (
     serialize_model_metadata
 )
 from src.utils.minio.exceptions.file_upload_exception import FileUploadException, FunctionConversionException
+from src.utils.minio.storage_client import StorageClient
 
 class StorageError(Exception):
     """Custom exception for storage-related errors."""
     pass
 
-class MinioStorageManager:
-    """Handles interactions with MinIO S3 storage."""
+class MinioStorageManager(StorageClient):
+    """MinIO implementation of the storage client interface."""
 
     def __init__(self, config: settings = settings):
-        self.config = config.minio
+        self._config = config.minio
         try:
             self.client = Minio(
-                endpoint=str(self.config.server_url).replace('http://', '').replace('https://', ''), # Minio client needs host:port
-                access_key=self.config.access_key,
-                secret_key=self.config.secret_key.get_secret_value() if hasattr(self.config.secret_key, 'get_secret_value') else self.config.secret_key,
-                secure=str(self.config.server_url).startswith('https')
+                endpoint=str(self._config.server_url).replace('http://', '').replace('https://', ''),
+                access_key=self._config.access_key,
+                secret_key=self._config.secret_key.get_secret_value() if hasattr(self._config.secret_key, 'get_secret_value') else self._config.secret_key,
+                secure=str(self._config.server_url).startswith('https')
             )
             # Check connection/bucket
-            found = self.client.bucket_exists(self.config.bucket_name)
+            found = self.client.bucket_exists(self._config.bucket_name)
             if not found:
-                self.client.make_bucket(self.config.bucket_name)
-                print(f"Created MinIO bucket: {self.config.bucket_name}")
+                self.client.make_bucket(self._config.bucket_name)
+                print(f"Created MinIO bucket: {self._config.bucket_name}")
             else:
-                print(f"Using existing MinIO bucket: {self.config.bucket_name}")
+                print(f"Using existing MinIO bucket: {self._config.bucket_name}")
 
         except S3Error as e:
             raise StorageError(f"MinIO S3 Error: {e}") from e
         except Exception as e:
-            raise StorageError(f"Failed to initialize MinIO client for endpoint {self.config.server_url}: {e}") from e
+            raise StorageError(f"Failed to initialize MinIO client for endpoint {self._config.server_url}: {e}") from e
+
+    @property
+    def config(self) -> Any:
+        """Get the storage configuration."""
+        return self._config
 
     def _upload_data(self, object_name: str, data: Union[bytes, BytesIO], length: int, content_type: str = 'application/octet-stream'):
         """Helper to upload data."""
@@ -50,46 +57,50 @@ class MinioStorageManager:
             data = BytesIO(data)
         try:
             self.client.put_object(
-                self.config.bucket_name,
+                self._config.bucket_name,
                 object_name,
                 data,
                 length=length,
                 content_type=content_type
             )
-            print(f"Successfully uploaded {object_name} to bucket {self.config.bucket_name}")
+            print(f"Successfully uploaded {object_name} to bucket {self._config.bucket_name}")
         except S3Error as e:
             raise StorageError(f"Failed to upload {object_name} to MinIO: {e}") from e
-        except Exception as e: # Catch broader exceptions
-             raise StorageError(f"Unexpected error during upload of {object_name}: {e}") from e
+        except Exception as e:
+            raise StorageError(f"Unexpected error during upload of {object_name}: {e}") from e
 
-    def upload_hyperparameters(self, hyperparameters: HyperParameters, object_name: Optional[str] = None):
-        """Uploads hyperparameters JSON."""
+    def upload_hyperparameters(self, hyperparameters: HyperParameters, object_name: Optional[str] = None) -> None:
+        """Upload hyperparameters JSON."""
         if object_name is None:
-            object_name = f"{self.config.custom_files_folder}/hyperparameters.json"
+            object_name = f"{self._config.custom_files_folder}/hyperparameters.json"
         try:
             data_bytes = serialize_hyperparameters(hyperparameters)
             self._upload_data(object_name, data_bytes, len(data_bytes), 'application/json')
         except Exception as e:
-            raise FileUploadException("hyperparameters.json", str(e)) from e # Keep specific exception for compatibility
+            raise FileUploadException("hyperparameters.json", str(e)) from e
 
-    def upload_model_metadata(self, model_metadata: ModelMetadata, object_name: Optional[str] = None):
-        """Uploads model metadata JSON."""
+    def upload_model_metadata(self, model_metadata: ModelMetadata, object_name: Optional[str] = None) -> None:
+        """Upload model metadata JSON."""
         if object_name is None:
-            object_name = f"{self.config.custom_files_folder}/model_metadata.json"
+            object_name = f"{self._config.custom_files_folder}/model_metadata.json"
         try:
             data_bytes = serialize_model_metadata(model_metadata)
             self._upload_data(object_name, data_bytes, len(data_bytes), 'application/json')
         except Exception as e:
             raise FileUploadException("model_metadata.json", str(e)) from e
 
-    def upload_reward_function(self, reward_function: Callable[[Dict], float], object_name: Optional[str] = None):
-        """Uploads reward function Python code."""
+    def upload_reward_function(self, reward_function: Union[Callable[[Dict], float], str], object_name: Optional[str] = None) -> None:
+        """Upload reward function Python code."""
         if object_name is None:
-            object_name = f"{self.config.custom_files_folder}/reward_function.py"
+            object_name = f"{self._config.custom_files_folder}/reward_function.py"
         try:
-            buffer = function_to_bytes_buffer(reward_function)
-            self._upload_data(object_name, buffer, buffer.getbuffer().nbytes, 'text/x-python')
-        except FunctionConversionException as e: # Catch specific conversion error
+            if isinstance(reward_function, str):
+                data_bytes = reward_function.encode('utf-8')
+                self._upload_data(object_name, data_bytes, len(data_bytes), 'text/x-python')
+            else:
+                buffer = function_to_bytes_buffer(reward_function)
+                self._upload_data(object_name, buffer, buffer.getbuffer().nbytes, 'text/x-python')
+        except FunctionConversionException as e:
             raise e
         except Exception as e:
             raise FileUploadException("reward_function.py", str(e)) from e
@@ -97,7 +108,7 @@ class MinioStorageManager:
     def upload_local_file(self, local_path: str, object_name: str):
         """Uploads a file from the local filesystem."""
         try:
-            self.client.fput_object(self.config.bucket_name, object_name, local_path)
+            self.client.fput_object(self._config.bucket_name, object_name, local_path)
             print(f"Successfully uploaded local file {local_path} to {object_name}")
         except S3Error as e:
             raise StorageError(f"Failed to upload local file {local_path} to MinIO: {e}") from e
@@ -107,7 +118,7 @@ class MinioStorageManager:
     def object_exists(self, object_name: str) -> bool:
         """Checks if an object exists in the bucket."""
         try:
-            self.client.stat_object(self.config.bucket_name, object_name)
+            self.client.stat_object(self._config.bucket_name, object_name)
             return True
         except S3Error as e:
             if e.code == 'NoSuchKey':
@@ -120,13 +131,60 @@ class MinioStorageManager:
         """Copies an object within the bucket."""
         try:
             # Create a proper CopySource object
-            source = CopySource(self.config.bucket_name, source_object_name)
+            source = CopySource(self._config.bucket_name, source_object_name)
             
             self.client.copy_object(
-                self.config.bucket_name,
+                self._config.bucket_name,
                 dest_object_name,
                 source
             )
             print(f"Successfully copied {source_object_name} to {dest_object_name}")
         except Exception as e:
             raise StorageError(f"Unexpected error copying {source_object_name}: {str(e)}") from e
+
+    def model_exists(self, model_name: str) -> bool:
+        """
+        Check if a model exists in the storage by looking for any object with the model prefix.
+        """
+        try:
+            objects = self.client.list_objects(
+                self._config.bucket_name,
+                prefix=f"{model_name}/",
+                recursive=True
+            )
+            for _ in objects:
+                return True
+            return False
+        except Exception as e:
+            raise StorageError(f"Error checking if model {model_name} exists: {e}") from e
+
+    def download_json(self, object_name: str) -> Dict:
+        """Download and parse a JSON object."""
+        try:
+            response = self.client.get_object(
+                self._config.bucket_name, 
+                object_name
+            )
+            data = response.read().decode('utf-8')
+            return json.loads(data)
+        except Exception as e:
+            raise StorageError(f"Error downloading object {object_name}: {e}")
+        finally:
+            if 'response' in locals():
+                response.close()
+                response.release_conn()
+    
+    def download_py_object(self, object_name: str) -> str:
+        """Download a Python file as text."""
+        try:
+            response = self.client.get_object(
+                self._config.bucket_name, 
+                object_name
+            )
+            return response.read().decode('utf-8')
+        except Exception as e:
+            raise StorageError(f"Error downloading object {object_name}: {e}")
+        finally:
+            if 'response' in locals():
+                response.close()
+                response.release_conn()
