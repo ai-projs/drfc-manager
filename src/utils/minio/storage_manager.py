@@ -1,6 +1,7 @@
 from io import BytesIO
 from typing import Callable, Dict, Optional, Union, Any
 import json
+import re
 
 from minio import Minio
 from minio.error import S3Error
@@ -96,7 +97,14 @@ class MinioStorageManager(StorageClient):
             object_name = f"{self._config.custom_files_folder}/reward_function.py"
         try:
             if isinstance(reward_function, str):
-                data_bytes = reward_function.encode('utf-8')
+                match = re.search(r'^def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\(', reward_function, flags=re.MULTILINE)
+                if match:
+                    func_name = match.group(1)
+                    alias = f"\n\n# Alias user-defined function to required name\nreward_function = {func_name}\n"
+                    reward_str = reward_function + alias
+                else:
+                    reward_str = reward_function
+                data_bytes = reward_str.encode('utf-8')
                 self._upload_data(object_name, data_bytes, len(data_bytes), 'text/x-python')
             else:
                 buffer = function_to_bytes_buffer(reward_function)
