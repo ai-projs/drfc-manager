@@ -506,8 +506,8 @@ def start_viewer_pipeline(
     # Set default run_id from environment or settings
     run_id = int(os.environ.get('DR_RUN_ID', getattr(settings.deepracer, 'run_id', 0)))
     
-    # Get active Docker style from environment or settings
-    settings.docker.dr_docker_style = os.environ.get('DR_DOCKER_STYLE', getattr(settings.docker, 'dr_docker_style', 'compose'))
+    # Ensure Docker style is set on the DeepRacer settings (DR_DOCKER_STYLE env var)
+    settings.deepracer.docker_style = os.environ.get('DR_DOCKER_STYLE', settings.deepracer.docker_style)
     
     # Use provided values or defaults
     config = ViewerConfig(
