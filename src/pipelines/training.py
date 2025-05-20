@@ -8,7 +8,7 @@ from src.transformers.training import (
     create_sagemaker_temp_files, check_if_metadata_is_available,
     upload_hyperparameters, upload_metadata, upload_reward_function,
     upload_training_params_file, start_training, expose_config_envs_from_dataclass,
-    check_training_logs_transformer
+    check_training_logs_transformer, upload_ip_config
 )
 from src.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition
 from src.types.hyperparameters import HyperParameters
@@ -87,6 +87,7 @@ def train_pipeline(
             echo(data=None, message=f'The reward function copied successfully to models folder at {reward_function_obj_location_model}') >>
             upload_training_params_file(model_name=model_name) >>
             echo(data=None, message='Upload successfully the RoboMaker training configurations') >>
+            upload_ip_config(model_name=model_name) >>
             expose_config_envs_from_dataclass(model_name=model_name, bucket_name=_bucket_name) >>
             echo(data=None, message='Starting model training') >>
             start_training >>

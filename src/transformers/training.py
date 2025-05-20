@@ -1,5 +1,6 @@
 from typing import Callable, Dict, Union, Optional
 import os
+import json
 
 from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
@@ -164,3 +165,19 @@ def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> N
         logger.info(f"Loaded DR_* vars for model '{model_name}' into current process environment.")
     except Exception as e:
         logger.warning(f"Failed to load DR_* vars into process environment: {e}")
+
+@partial_transformer
+def upload_ip_config(_, model_name: str):
+    """Upload Redis IP config (ip.json and done flag) to S3"""
+    # Determine Redis host (Docker DNS name)
+    redis_host = os.environ.get('REDIS_HOST', settings.redis.host)
+    # Prepare IP config
+    ip_config = {'IP': redis_host}
+    object_name = f'{model_name}/ip/ip.json'
+    data_bytes = json.dumps(ip_config).encode('utf-8')
+    # Upload ip.json
+    storage_manager._upload_data(object_name, data_bytes, len(data_bytes), 'application/json')
+    # Upload done flag
+    done_key = f'{model_name}/ip/done'
+    storage_manager._upload_data(done_key, b'done', len(b'done'), 'application/octet-stream')
+    logger.info(f'Uploaded Redis IP config to {object_name} and done flag to {done_key}')

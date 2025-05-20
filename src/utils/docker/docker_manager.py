@@ -62,21 +62,6 @@ class DockerManager:
             self._run_command(["docker", "system", "prune", "-f"], check=False)
             time.sleep(2)
 
-    def _ensure_redis_network(self):
-        """Create the Redis network if it doesn't exist."""
-        network_name = self.config.redis.network
-        subnet = self.config.redis.subnet
-        
-        check_cmd = ["docker", "network", "inspect", network_name]
-        result = subprocess.run(check_cmd, check=False, capture_output=True)
-        
-        if result.returncode == 0:
-            logger.info(f"Network '{network_name}' already exists.")
-            return
-            
-        logger.info(f"Creating Docker network '{network_name}' with subnet {subnet}...")
-        self._run_command(["docker", "network", "create", f"--subnet={subnet}", network_name])
-
     def _get_compose_file_paths(self, file_types: List[ComposeFileType]) -> List[str]:
         """Get full paths for compose files."""
         from src.utils.docker.utilities import _adjust_composes_file_names
@@ -136,7 +121,7 @@ class DockerManager:
         )
         os.environ["DR_CURRENT_PARAMS_FILE"] = self.config.deepracer.local_s3_training_params_file
         os.environ["DR_RUN_ID"] = str(self.config.deepracer.run_id)
-        os.environ['REDIS_IP'] = self.config.redis.ip
+        os.environ['REDIS_HOST'] = self.config.redis.host
         os.environ['REDIS_PORT'] = str(self.config.redis.port)
 
         if workers > 1:
@@ -149,8 +134,6 @@ class DockerManager:
         """Start the DeepRacer Docker stack with all required services."""
         workers = self.config.deepracer.workers
         logger.info(f"Starting DeepRacer stack for project {self.project_name} with {workers} workers...")
-
-        self._ensure_redis_network()
 
         compose_files, multi_added = self._prepare_compose_files(workers)
         temp_compose_path = compose_files[0]
@@ -183,7 +166,7 @@ class DockerManager:
         """Clean up temporary file if it exists."""
         if file_path and os.path.exists(file_path):
             try:
-                os.remove(file_path)
+                # os.remove(file_path)
                 logger.info(f"Cleaned up temporary file {file_path}")
             except OSError as e:
                 logger.warning(f"Failed to remove temporary file {file_path}: {e}")

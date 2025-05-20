@@ -1,6 +1,7 @@
 import os
 import yaml
 import tempfile
+import subprocess
 from typing import Dict, Any
 
 from src.config import settings
@@ -11,44 +12,60 @@ class RedisManager:
     def __init__(self, config=settings):
         self.config = config
     
+    def _ensure_redis_network(self):
+        """Create the Redis network with fixed IP pool if it doesn't exist."""
+        network_name = self.config.redis.network
+        subnet = self.config.redis.subnet
+        
+        check_cmd = ["docker", "network", "inspect", network_name]
+        result = subprocess.run(check_cmd, check=False, capture_output=True)
+        
+        if result.returncode == 0:
+            logger.info(f"Network '{network_name}' already exists.")
+            return
+            
+        logger.info(f"Creating Docker network '{network_name}' with subnet {subnet}...")
+        self._run_command(["docker", "network", "create", f"--subnet={subnet}", network_name])
+    
+    def _run_command(self, command: list, check: bool = True) -> subprocess.CompletedProcess:
+        """Run a shell command and return the result."""
+        try:
+            result = subprocess.run(command, check=check, capture_output=True, text=True)
+            return result
+        except subprocess.CalledProcessError as e:
+            raise DockerError(f"Command failed: {e.cmd}, Error: {e.stderr}") from e
+    
     def add_redis_to_compose(self, compose_data: Dict[str, Any]) -> Dict[str, Any]:
         if 'services' not in compose_data:
             compose_data['services'] = {}
         
+        # Add Redis service on the existing network (use DNS and port, no fixed IP)
         compose_data['services']['redis'] = {
             'image': 'redis:alpine',
-            'networks': {
-                'default': {
-                    'ipv4_address': self.config.redis.ip
-                }
-            }
+            'restart': 'always',
+            'networks': ['default']
         }
         
-        if 'robomaker' in compose_data['services']:
-            service = compose_data['services']['robomaker']
-            
-            if 'environment' not in service:
-                service['environment'] = {}
-            
-            if isinstance(service['environment'], dict):
-                service['environment']['REDIS_IP'] = self.config.redis.ip
-                service['environment']['REDIS_PORT'] = self.config.redis.port
-            elif isinstance(service['environment'], list):
-                service['environment'].append(f'REDIS_IP={self.config.redis.ip}')
-                service['environment'].append(f'REDIS_PORT={self.config.redis.port}')
+        # Add Redis environment variables to both services
+        for service_name in ['rl_coach', 'robomaker']:
+            if service_name in compose_data['services']:
+                service = compose_data['services'][service_name]
                 
-            if 'depends_on' not in service:
-                service['depends_on'] = ['redis']
-            elif isinstance(service['depends_on'], list):
-                if 'redis' not in service['depends_on']:
-                    service['depends_on'].append('redis')
-        
-        compose_data['networks'] = {
-            'default': {
-                'external': True,
-                'name': self.config.redis.network
-            }
-        }
+                if 'environment' not in service:
+                    service['environment'] = {}
+                
+                if isinstance(service['environment'], dict):
+                    service['environment']['REDIS_HOST'] = 'redis'
+                    service['environment']['REDIS_PORT'] = self.config.redis.port
+                elif isinstance(service['environment'], list):
+                    service['environment'].append('REDIS_HOST=redis')
+                    service['environment'].append(f'REDIS_PORT={self.config.redis.port}')
+                
+                if 'depends_on' not in service:
+                    service['depends_on'] = ['redis']
+                elif isinstance(service['depends_on'], list):
+                    if 'redis' not in service['depends_on']:
+                        service['depends_on'].append('redis')
         
         if 'version' in compose_data:
             del compose_data['version']

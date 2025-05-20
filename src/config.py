@@ -63,15 +63,18 @@ class DeepRacerConfig(BaseSettings):
     local_s3_model_prefix: str = ''
 
 class RedisConfig(BaseSettings):
-    """Redis Configuration for DeepRacer Training"""
+    """Redis configuration for DeepRacer Training."""
     model_config = SettingsConfigDict(env_prefix='REDIS_')
 
-    # These values are fixed to ensure compatibility with DeepRacer simulation
-    network: str = Field(default="sagemaker-local", description="Docker network name")
-    subnet: str = Field(default="10.0.1.0/24", description="Network subnet (should not be changed)")
-    ip: str = Field(default="10.0.1.15", description="Redis IP address (must match what RoboMaker expects)")
-    port: str = Field(default="6379", description="Redis port")
-    
+    host: str = Field(
+        default="redis",
+        description="Redis hostname (DNS service name in Docker network)"
+    )
+    port: int = Field(
+        default=6379,
+        description="Redis port"
+    )
+
 class AWSConfig(BaseSettings):
     """AWS Configuration for DeepRacer Training"""
     region: str = "us-east-1" # Default AWS region
