@@ -121,8 +121,8 @@ class EnvVars:
     DR_GAZEBO_ARGS: str = ""
 
     # --- Telemetry ---
-    DR_TELEGRAF_HOST: str = ""
-    DR_TELEGRAF_PORT: str = ""
+    DR_TELEGRAF_HOST: str = "telegraf"
+    DR_TELEGRAF_PORT: str = "8092"
     
     DRFC_REPO_ABS_PATH: str = "/home/insightlab/deepracer/deepracer-for-cloud"
 

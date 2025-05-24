@@ -15,6 +15,7 @@ class ComposeFileType(Enum):
     XORG = "local-xorg"
     XORG_WSL = "local-xorg-wsl"
 
+    METRICS = "metrics"
 
     ROBOMAKER_MULTI = "robomaker-multi"
     ROBOMAKER_SCRIPTS = "robomaker-scripts" 
