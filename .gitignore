@@ -170,3 +170,5 @@ cython_debug/
 
 # Test files
 /src/main.py
+
+.vscode/
