@@ -10,13 +10,21 @@ from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
 from drfc_manager.utils.logging import logger, setup_logging
 
+
+try:
+    from drfc_manager.utils.paths import PACKAGE_ROOT
+except ImportError:
+    PACKAGE_ROOT = Path(__file__).parent.parent.parent
+
 GRAFANA_DEFAULT_URL = "http://localhost:3000"
 GRAFANA_DEFAULT_TIMEOUT = 90
 GRAFANA_DEFAULT_USERNAME = "admin"
 GRAFANA_DEFAULT_PASSWORD = "admin"
 METRICS_STACK_NAME = "deepracer-metrics"
+
+
 CONFIG_PATHS = [
-    "config/drfc-images/metrics/configuration.env",
+    PACKAGE_ROOT / "config" / "drfc-images" / "metrics" / "configuration.env",
     Path(__file__).parent.parent.parent / "config" / "drfc-images" / "metrics" / "configuration.env",
 ]
 
@@ -75,10 +83,6 @@ def _get_grafana_config() -> Dict[str, str]:
         Dict[str, str]: Grafana configuration including credentials
     """
     config_paths = [Path(p) for p in CONFIG_PATHS]
-    
-    if settings.docker.drfc_base_path:
-        config_paths.append(Path(settings.docker.drfc_base_path) / "config" / "drfc-images" / "metrics" / "configuration.env")
-    
     for config_path in config_paths:
         if config_path.exists():
             config = {}
@@ -88,7 +92,6 @@ def _get_grafana_config() -> Dict[str, str]:
                         key, value = line.strip().split('=', 1)
                         config[key] = value
             return config
-    
     raise FileNotFoundError(
         "Grafana configuration file not found. Tried paths:\n" + 
         "\n".join(f"  - {p}" for p in config_paths)
