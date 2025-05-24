@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 from pathlib import Path
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
 from drfc_manager.utils.logging import logger, setup_logging

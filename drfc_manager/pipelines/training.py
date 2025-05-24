@@ -13,7 +13,7 @@ from drfc_manager.transformers.training import (
 from drfc_manager.transformers.general import check_if_model_exists_transformer, copy_object, echo, forward_condition
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.utils.docker.docker_manager import DockerManager, DockerError
 from drfc_manager.utils.minio.storage_manager import MinioStorageManager
 from drfc_manager.models.model_operations import create_clone_config, generate_model_name

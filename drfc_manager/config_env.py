@@ -28,10 +28,6 @@ class DockerConfig(BaseSettings):
     """Docker and Container Configuration"""
     model_config = SettingsConfigDict(env_prefix='DOCKER_')
 
-    # Path to deepracer-for-cloud checkout (critical for multi-worker mounts)
-    # Renamed from DRFC_REPO_ABS_PATH for clarity
-    drfc_base_path: Optional[DirectoryPath] = Field(None, alias='DRFC_REPO_ABS_PATH', description="Absolute path to the deepracer-for-cloud repository")
-
     # Docker daemon connection (optional)
     local_daemon_url: Optional[str] = Field(None, alias='LOCAL_SERVER_DOCKER_DAEMON', description="URL for local Docker daemon")
     remote_daemon_url: Optional[str] = Field(None, alias='REMOTE_SERVER_DOCKER_DAEMON', description="URL for remote Docker daemon")
@@ -39,6 +35,10 @@ class DockerConfig(BaseSettings):
     # Default Image Tags
     simapp_image: str = Field("awsdeepracercommunity/deepracer-simapp:5.3.3-gpu", alias='SIMAPP_IMAGE_REPOTAG', description="Default DeepRacer simulation image")
     minio_image: str = Field("minio/minio:latest", alias='MINIO_IMAGE_REPOTAG', description="Default MinIO image")
+
+    # Docker style configuration
+    docker_style: str = Field("compose", alias='DR_DOCKER_STYLE', description="Docker style to use (compose or swarm)")
+    dr_docker_file_sep: str = Field(" -f ", description="Separator used between docker compose files")
 
 class DeepRacerConfig(BaseSettings):
     """Runtime configuration for DeepRacer training, aligns with DR_* env vars"""

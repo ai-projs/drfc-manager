@@ -3,7 +3,7 @@ import datetime
 
 from typing import Dict, Any
 from drfc_manager.types.env_vars import EnvVars
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from gloe import transformer
 from drfc_manager.utils.logging import logger
 

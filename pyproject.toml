@@ -6,7 +6,11 @@ authors = ["João Victor Carvalho <joaocarvoli@hotmail.com>"]
 license = "MIT"
 readme = "README.md"
 packages = [
-    { include = "drfc_manager" }
+    { include = "drfc_manager" },
+    { include = "drfc_manager/config" }
+]
+include = [
+    "drfc_manager/config/drfc-images/*"
 ]
 
 [tool.poetry.dependencies]

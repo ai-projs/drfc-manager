@@ -4,7 +4,7 @@ import tempfile
 import subprocess
 from typing import Dict, Any
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.logging import logger
 

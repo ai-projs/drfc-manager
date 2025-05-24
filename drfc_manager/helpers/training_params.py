@@ -65,9 +65,10 @@ def writing_on_temp_training_yml(model_name: str) -> list:
         s3_yaml_name = os.environ.get('DR_LOCAL_S3_TRAINING_PARAMS_FILE', 'training_params.yaml')
         yaml_key = os.path.normpath(os.path.join(s3_prefix, s3_yaml_name))
 
-        create_folder('/tmp/dr/')
+        temp_dir = os.path.expanduser('~/dr_temp')
+        create_folder(temp_dir)
 
-        local_yaml_path = os.path.join('/tmp/dr/', 'training-params-' + train_time + '.yaml')
+        local_yaml_path = os.path.join(temp_dir, 'training-params-' + train_time + '.yaml')
 
         with open(local_yaml_path, 'w') as yaml_file:
             yaml.dump(config, yaml_file, default_flow_style=False, default_style='\'', explicit_start=True)

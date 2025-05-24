@@ -1,7 +1,7 @@
 import os
 from typing import Dict, Any, List
 from drfc_manager.utils.docker.docker_manager import DockerManager
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from gloe import transformer
 from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
 from drfc_manager.types.docker import ComposeFileType

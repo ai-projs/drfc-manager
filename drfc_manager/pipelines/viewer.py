@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from gloe import transformer
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 
 DEFAULT_VIEWER_PORT = 8100
 DEFAULT_PROXY_PORT = 8090
@@ -282,8 +282,10 @@ def start_stream_proxy(data: Dict[str, Any]) -> Dict[str, Any]:
 
     cmd = ["uvicorn", "drfc_manager.viewers.stream_proxy:app", "--host", "0.0.0.0", "--port", str(config.proxy_port), "--workers", "1"]
 
-    proxy_stdout_log = TEMP_DIR / f"{PROXY_LOG_BASENAME}_{config.proxy_port}_stdout.log"
-    proxy_stderr_log = TEMP_DIR / f"{PROXY_LOG_BASENAME}_{config.proxy_port}_stderr.log"
+    USER_TMP = Path(tempfile.gettempdir()) / os.environ.get('USER', 'unknown_user')
+    USER_TMP.mkdir(parents=True, exist_ok=True)
+    proxy_stdout_log = USER_TMP / f"{PROXY_LOG_BASENAME}_{config.proxy_port}_stdout.log"
+    proxy_stderr_log = USER_TMP / f"{PROXY_LOG_BASENAME}_{config.proxy_port}_stderr.log"
     logger.info(f"Proxy logs will be written to: {proxy_stdout_log} and {proxy_stderr_log}")
 
     process = None
@@ -373,8 +375,10 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
 
     cmd = ["streamlit", "run", str(viewer_script), "--server.port", str(config.port), "--server.headless", "true"]
 
-    streamlit_stdout_log = TEMP_DIR / f"{STREAMLIT_LOG_BASENAME}_{config.port}_stdout.log"
-    streamlit_stderr_log = TEMP_DIR / f"{STREAMLIT_LOG_BASENAME}_{config.port}_stderr.log"
+    USER_TMP = Path(tempfile.gettempdir()) / os.environ.get('USER', 'unknown_user')
+    USER_TMP.mkdir(parents=True, exist_ok=True)
+    streamlit_stdout_log = USER_TMP / f"{STREAMLIT_LOG_BASENAME}_{config.port}_stdout.log"
+    streamlit_stderr_log = USER_TMP / f"{STREAMLIT_LOG_BASENAME}_{config.port}_stderr.log"
     logger.info(f"Streamlit logs will be written to: {streamlit_stdout_log} and {streamlit_stderr_log}")
 
     process = None
@@ -557,3 +561,11 @@ def stop_viewer_pipeline(quiet: bool = True) -> Dict[str, Any]:
     except Exception as e:
         logger.error("Error stopping viewer pipeline", exc_info=True)
         return {"status": "error", "error": str(e), "type": type(e).__name__}
+
+def get_user_tmp_dir():
+    user_tmp = os.path.join(tempfile.gettempdir(), os.environ.get('USER', 'unknown_user'))
+    try:
+        os.makedirs(user_tmp, exist_ok=True)
+    except Exception as e:
+        raise RuntimeError(f"Could not create user temp directory {user_tmp}: {e}")
+    return user_tmp

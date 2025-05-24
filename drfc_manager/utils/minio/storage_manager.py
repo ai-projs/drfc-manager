@@ -7,7 +7,7 @@ from minio import Minio
 from minio.error import S3Error
 from minio.commonconfig import CopySource
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.utils.minio.utilities import (
