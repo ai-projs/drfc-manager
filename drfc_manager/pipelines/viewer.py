@@ -36,11 +36,20 @@ if os.environ.get('DRFC_DEBUG', 'false').lower() == 'true':
 
 handlers = []
 
-# Only add console handler if explicitly requested
 console_logging = os.environ.get('DRFC_CONSOLE_LOGGING', 'false').lower() == 'true'
 
+def get_user_tmp_dir():
+    user_tmp = Path(tempfile.gettempdir()) / os.environ.get('USER', 'unknown_user')
+    try:
+        user_tmp.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        raise RuntimeError(f"Could not create user temp directory {user_tmp}: {e}")
+    return user_tmp
+
 try:
-    log_file_path = TEMP_DIR / "viewer_pipeline.log"
+    USER_TMP = get_user_tmp_dir()
+    VIEWER_LOG = USER_TMP / "viewer_pipeline.log"
+    log_file_path = Path(VIEWER_LOG)
     file_handler = logging.FileHandler(log_file_path, mode='a')
     file_handler.setFormatter(log_formatter)
     handlers.append(file_handler)
@@ -561,11 +570,3 @@ def stop_viewer_pipeline(quiet: bool = True) -> Dict[str, Any]:
     except Exception as e:
         logger.error("Error stopping viewer pipeline", exc_info=True)
         return {"status": "error", "error": str(e), "type": type(e).__name__}
-
-def get_user_tmp_dir():
-    user_tmp = os.path.join(tempfile.gettempdir(), os.environ.get('USER', 'unknown_user'))
-    try:
-        os.makedirs(user_tmp, exist_ok=True)
-    except Exception as e:
-        raise RuntimeError(f"Could not create user temp directory {user_tmp}: {e}")
-    return user_tmp
