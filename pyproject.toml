@@ -1,0 +1,40 @@
+[tool.poetry]
+name = "drfc-manager"
+version = "0.0.1"
+description = "A package for managing DeepRacer training and evaluation"
+authors = ["João Victor Carvalho <joaocarvoli@hotmail.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "drfc_manager" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+docker = "7.1.0"
+orjson = "3.10.3"
+minio = "7.2.7"
+paramiko = "3.4.0"
+pyyaml = "6.0.1"
+gloe = "0.5.9"
+python-dotenv = "1.0.1"
+requests = "2.31"
+jupyter = "^1.1.1"
+jupyterlab = "^4.3.6"
+python-on-whales = "^0.76.1"
+pydantic-settings = ">=2.0.0"
+fastapi = "^0.115.12"
+uvicorn = "^0.34.2"
+pillow = "^11.2.1"
+tqdm = "^4.67.1"
+streamlit = "^1.45.0"
+
+
+[tool.poetry.plugins.dotenv]
+ignore = "false"
+location = ".env"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
