@@ -1,10 +1,13 @@
 [tool.poetry]
 name = "drfc-manager"
 version = "0.0.1"
-description = ""
+description = "A package for managing DeepRacer training and evaluation"
 authors = ["João Victor Carvalho <joaocarvoli@hotmail.com>"]
 license = "MIT"
 readme = "README.md"
+packages = [
+    { include = "drfc_manager" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.11"
