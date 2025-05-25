@@ -19,10 +19,10 @@ from drfc_manager.utils.minio.utilities import function_to_bytes_buffer
 from drfc_manager.utils.minio.exceptions.file_upload_exception import FileUploadException
 from drfc_manager.utils.logging import logger
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 
-sagemaker_temp_dir = '/tmp/sagemaker'
-work_directory = '/tmp/teste'
+sagemaker_temp_dir = os.path.expanduser('~/sagemaker_temp')
+work_directory = os.path.expanduser('~/dr_work')
 
 storage_manager = MinioStorageManager(settings)
 docker_manager = DockerManager(settings)

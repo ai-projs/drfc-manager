@@ -12,7 +12,15 @@ from fastapi import FastAPI, Request, Query, HTTPException
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
-LOG_FILE = os.path.join(tempfile.gettempdir(), "stream_proxy.log")
+user_tmp = os.path.join(tempfile.gettempdir(), os.environ.get('USER', 'unknown_user'))
+try:
+    os.makedirs(user_tmp, exist_ok=True)
+except Exception as e:
+    raise RuntimeError(f"Could not create user temp directory {user_tmp}: {e}")
+
+LOG_FILE = os.path.join(user_tmp, "stream_proxy.log")
+PROXY_STDOUT_LOG = os.path.join(user_tmp, "stream_proxy_8090_stdout.log")
+PROXY_STDERR_LOG = os.path.join(user_tmp, "stream_proxy_8090_stderr.log")
 DEFAULT_PROXY_PORT = 8090
 DEFAULT_TARGET_HOST = "localhost"
 DEFAULT_TARGET_PORT = 9080

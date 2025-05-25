@@ -3,12 +3,14 @@ import os
 import subprocess
 import time
 from typing import List, Tuple, Optional, Dict
+from pathlib import Path
 
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.redis.manager import RedisManager
 from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.logging import logger
+from drfc_manager.utils.paths import get_comms_dir, get_logs_dir
 
 
 class DockerManager:
@@ -90,25 +92,13 @@ class DockerManager:
 
     def _setup_multiworker_env(self) -> bool:
         """Set up environment for multiple workers."""
-        if not self.config.docker.drfc_base_path or not os.path.isdir(self.config.docker.drfc_base_path):
-            logger.warning(f"DRFC_REPO_ABS_PATH is not set or invalid. Skipping robomaker-multi.")
-            return False
-            
-        os.environ["DR_DIR"] = str(self.config.docker.drfc_base_path)
-        
-        comms_dir = os.path.join(
-            self.config.docker.drfc_base_path, 
-            "tmp", 
-            f"comms.{self.config.deepracer.run_id}"
-        )
-        
         try:
-            os.makedirs(os.path.dirname(comms_dir), exist_ok=True)
-            os.makedirs(comms_dir, exist_ok=True)
+            comms_dir = get_comms_dir(self.config.deepracer.run_id)
+            os.environ["DR_DIR"] = str(comms_dir.parent.parent)  # Set to tmp directory
             logger.info(f"Created comms dir: {comms_dir}")
             return True
         except OSError as e:
-            logger.warning(f"Failed to create comms directory '{comms_dir}': {e}. Multi-worker may fail.")
+            logger.warning(f"Failed to create comms directory: {e}. Multi-worker may fail.")
             return False
 
     def _set_runtime_env_vars(self, workers: int):

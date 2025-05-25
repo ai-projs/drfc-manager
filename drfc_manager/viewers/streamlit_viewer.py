@@ -12,8 +12,13 @@ import time
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
 MODAL_WIDTH = 800
-TEMP_DIR = Path(tempfile.gettempdir())
-LOG_FILE = TEMP_DIR / "streamlit_viewer.log"
+user_tmp = Path(tempfile.gettempdir()) / os.environ.get('USER', 'unknown_user')
+try:
+    user_tmp.mkdir(parents=True, exist_ok=True)
+except Exception as e:
+    st.error(f"Could not create user temp directory {user_tmp}: {e}")
+
+LOG_FILE = user_tmp / "streamlit_viewer.log"
 
 DEFAULT_CAMERA_ID = "kvs_stream"
 DEFAULT_CAMERA_TOPIC = "/racecar/deepracer/kvs_stream"

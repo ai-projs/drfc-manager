@@ -1,44 +1,36 @@
 import os
 from typing import List
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.utils.str_to_bool import str2bool
 # Import the enum and the utility function
 from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
 from drfc_manager.utils.logging import logger
+from drfc_manager.utils.paths import get_logs_dir
 
 def get_compose_files() -> str:
     """
     Determines the Docker Compose file paths to use for evaluation,
     leveraging the ComposeFileType enum and utility functions.
     """
-    compose_types: List[ComposeFileType] = [ComposeFileType.EVAL] # Start with base evaluation file
+    compose_types: List[ComposeFileType] = [ComposeFileType.EVAL]
 
-    # Conditionally add overlays based on config/env vars
-
-    # S3/AWS Configuration Overlays
-    if settings.minio.server_url: # Local S3 endpoint configured
+    if settings.minio.server_url:
         compose_types.append(ComposeFileType.ENDPOINT)
         s3_auth_mode = os.environ.get('DR_LOCAL_S3_AUTH_MODE', 'profile')
-        if s3_auth_mode != 'role': # Use keys unless using role auth
+        if s3_auth_mode != 'role':
             compose_types.append(ComposeFileType.KEYS)
-    elif not settings.minio.server_url: # Not local, assume AWS cloud context
-        # Add AWS metadata overlay if needed (e.g., for IAM role auth)
-        # You might need a specific setting like settings.aws.use_iam_role to decide this
-        # For now, let's assume if not local minio, we need the AWS overlay
+    elif not settings.minio.server_url:
         compose_types.append(ComposeFileType.AWS)
-        # Add CloudWatch logging overlay if enabled
         if str2bool(os.environ.get('DR_CLOUD_WATCH_ENABLE', 'False')):
              compose_types.append(ComposeFileType.CWLOG)
 
 
-    # Log Mounting Overlay
     mount_logs = str2bool(os.environ.get('DR_ROBOMAKER_MOUNT_LOGS', 'False'))
     if mount_logs:
         compose_types.append(ComposeFileType.MOUNT)
         model_prefix = os.environ.get('DR_LOCAL_S3_MODEL_PREFIX', 'unknown_model')
-        dr_dir = os.environ.get('DRFC_REPO_ABS_PATH', '/opt/DRfC') # Use env var set by setup
-        mount_dir = os.path.join(dr_dir, "data/logs/robomaker", model_prefix)
+        mount_dir = str(get_logs_dir(model_prefix))
         os.environ['DR_MOUNT_DIR'] = mount_dir
         try:
             os.makedirs(mount_dir, exist_ok=True)

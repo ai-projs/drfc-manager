@@ -6,7 +6,7 @@ import yaml
 from drfc_manager.utils.docker.docker_manager import DockerManager
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.minio.storage_manager import MinioStorageManager
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.evaluation.get_compose_files import get_compose_files
 from gloe import transformer
 from drfc_manager.types.env_vars import EnvVars

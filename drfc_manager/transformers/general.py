@@ -2,7 +2,7 @@ from typing import Any
 from gloe import partial_transformer, condition, transformer
 
 from drfc_manager.transformers.exceptions.base import BaseExceptionTransformers
-from drfc_manager.config import settings
+from drfc_manager.config_env import settings
 from drfc_manager.utils.minio.storage_manager import MinioStorageManager
 from drfc_manager.utils.logging import logger
 
