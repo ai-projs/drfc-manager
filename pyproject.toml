@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drfc-manager"
-version = "0.1.1"
+version = "0.1.2"
 description = "A comprehensive Python package for managing AWS DeepRacer training workflows, model evaluation, and deployment. Features include pipeline management, custom model training, evaluation metrics, and visualization tools."
 authors = ["João Victor Carvalho <joaocarvoli@hotmail.com>"]
 license = "MIT"
