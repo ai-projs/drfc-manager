@@ -10,22 +10,30 @@ from drfc_manager.utils.paths import get_logs_dir
 
 def get_compose_files() -> str:
     """
-    Get the list of Docker Compose files needed for the current configuration.
-    
-    Returns:
-        str: Space-separated list of Docker Compose file paths
+    Determines the Docker Compose file paths to use for evaluation,
+    leveraging the ComposeFileType enum and utility functions.
     """
-    compose_types = [ComposeFileType.EVAL]
+    compose_types: List[ComposeFileType] = [ComposeFileType.EVAL]
 
-    # Mount logs if enabled
+    if settings.minio.server_url:
+        compose_types.append(ComposeFileType.ENDPOINT)
+        s3_auth_mode = os.environ.get('DR_LOCAL_S3_AUTH_MODE', 'profile')
+        if s3_auth_mode != 'role':
+            compose_types.append(ComposeFileType.KEYS)
+    elif not settings.minio.server_url:
+        compose_types.append(ComposeFileType.AWS)
+        if str2bool(os.environ.get('DR_CLOUD_WATCH_ENABLE', 'False')):
+             compose_types.append(ComposeFileType.CWLOG)
+
+
     mount_logs = str2bool(os.environ.get('DR_ROBOMAKER_MOUNT_LOGS', 'False'))
     if mount_logs:
         compose_types.append(ComposeFileType.MOUNT)
         model_prefix = os.environ.get('DR_LOCAL_S3_MODEL_PREFIX', 'unknown_model')
-        mount_dir = get_logs_dir(model_prefix)
-        os.environ['DR_MOUNT_DIR'] = str(mount_dir)
+        mount_dir = str(get_logs_dir(model_prefix))
+        os.environ['DR_MOUNT_DIR'] = mount_dir
         try:
-            mount_dir.mkdir(parents=True, exist_ok=True)
+            os.makedirs(mount_dir, exist_ok=True)
         except OSError as e:
             logger.warning(f"Could not create log mount directory {mount_dir}: {e}")
     else:
@@ -55,8 +63,9 @@ def get_compose_files() -> str:
     if docker_style == "swarm":
         compose_types.append(ComposeFileType.EVAL_SWARM)
 
+
     compose_file_names = [ct.value for ct in compose_types]
     compose_file_paths = _adjust_composes_file_names(compose_file_names)
 
     separator = getattr(settings.docker, 'dr_docker_file_sep', ' -f ')
-    return separator.join(compose_file_paths)
+    return separator.join(f for f in compose_file_paths if f)
