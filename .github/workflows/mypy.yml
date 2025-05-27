@@ -34,5 +34,8 @@ jobs:
         if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
         run: poetry install --no-interaction --no-root
 
+      - name: Install mypy types
+        run: poetry run mypy --install-types --non-interactive
+
       - name: Run mypy
         run: poetry run mypy drfc_manager
