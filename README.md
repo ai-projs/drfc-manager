@@ -21,6 +21,7 @@
 5. [Advanced Usage](#advanced-usage)
 6. [Troubleshooting](#troubleshooting)
 7. [Idea behind](#idea-behind)
+8. [Contributing](#contributing)
 
 </details>
    
@@ -157,6 +158,10 @@ stop_viewer_pipeline(quiet=True)
 ## Idea behind
 
 This lib is developed using the same ideas and implementation as the [aws-deepracer-community/deepracer-for-cloud](https://github.com/aws-deepracer-community/deepracer-for-cloud) repo: _"A quick and easy way to get up and running with a DeepRacer training environment using a cloud virtual machine or a local computer"_.
+
+## Contributing
+
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and instructions.
 
 ---
 
