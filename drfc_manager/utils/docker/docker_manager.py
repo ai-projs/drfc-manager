@@ -1,16 +1,14 @@
-from enum import Enum
 import os
 import subprocess
 import time
 from typing import List, Tuple, Optional, Dict
-from pathlib import Path
 
 from drfc_manager.config_env import settings
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.redis.manager import RedisManager
 from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.logging import logger
-from drfc_manager.utils.paths import get_comms_dir, get_logs_dir
+from drfc_manager.utils.paths import get_comms_dir
 
 
 class DockerManager:

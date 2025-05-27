@@ -4,7 +4,7 @@ import json
 import requests
 import logging
 import tempfile
-from typing import List, Dict, Tuple, Optional, Any
+from typing import List, Dict, Tuple
 from pathlib import Path
 import streamlit.components.v1 as components
 import time
@@ -138,7 +138,7 @@ def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
             else:
                 response.raise_for_status()
 
-        except requests.exceptions.ConnectionError as e:
+        except requests.exceptions.ConnectionError:
             st.session_state.proxy_healthy = False
             st.session_state.proxy_error_message = (
                 "Connection refused. Is the proxy running?"
@@ -154,7 +154,7 @@ def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
                 logger.error(
                     f"Proxy health check failed after {max_retries + 1} attempts: Connection refused."
                 )
-                proxy_status_placeholder.error(f"Status: Connection Refused", icon="🚫")
+                proxy_status_placeholder.error("Status: Connection Refused", icon="🚫")
                 return
 
         except requests.exceptions.Timeout:
@@ -165,7 +165,7 @@ def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
             logger.error(
                 f"Proxy health check failed: Timeout after {PROXY_TIMEOUT}s connecting to {health_url}"
             )
-            proxy_status_placeholder.error(f"Status: Timeout", icon="⏱️")
+            proxy_status_placeholder.error("Status: Timeout", icon="⏱️")
             return
 
         except requests.exceptions.RequestException as e:

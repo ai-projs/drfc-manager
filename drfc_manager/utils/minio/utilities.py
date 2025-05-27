@@ -6,7 +6,6 @@ from orjson import dumps, OPT_INDENT_2
 
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.utils.minio.exceptions.file_upload_exception import (
-    FileUploadException,
     FunctionConversionException,
 )
 

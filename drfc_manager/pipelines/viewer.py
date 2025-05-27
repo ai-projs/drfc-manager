@@ -567,7 +567,7 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
 
             return {
                 "status": "success",
-                "message": f"Streamlit viewer started successfully.",
+                "message": "Streamlit viewer started successfully.",
                 "viewer_url": streamlit_url,
                 "viewer_pid": process.pid,
                 "proxy_url": proxy_url,

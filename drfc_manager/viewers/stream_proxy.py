@@ -6,9 +6,9 @@ import logging
 import time
 import socket
 import tempfile
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from fastapi import FastAPI, Request, Query, HTTPException
+from fastapi import FastAPI, Request, Query
 from fastapi.responses import StreamingResponse, Response, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -51,7 +51,7 @@ try:
     file_handler = logging.FileHandler(LOG_FILE, mode="a")
     file_handler.setFormatter(log_formatter)
     handlers.append(file_handler)
-except OSError as e:
+except OSError:
     if not console_logging:
         # Add stream handler as fallback only if no console logging was configured
         stream_handler = logging.StreamHandler()

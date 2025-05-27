@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, DirectoryPath, HttpUrl, validator
+from pydantic import Field, HttpUrl, validator
 
 # Load .env file if it exists
 from dotenv import load_dotenv
