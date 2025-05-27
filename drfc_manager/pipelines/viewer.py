@@ -181,7 +181,7 @@ def _kill_processes_by_pattern(pattern: str) -> Tuple[bool, List[str]]:
                             f"PID {pid} still exists after SIGTERM. Sending SIGKILL..."
                         )
                         kill_cmd_kill = ["kill", "-9", str(pid)]
-                        kill_result = subprocess.run(
+                        subprocess.run(
                             kill_cmd_kill, check=True, capture_output=True, text=True
                         )
                         logger.info(f"Successfully sent SIGKILL to PID {pid}.")
