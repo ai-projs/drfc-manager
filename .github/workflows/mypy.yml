@@ -1,0 +1,17 @@
+name: Mypy Check
+
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  mypy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run mypy
+        uses: jpetrucciani/mypy-check@v1
+        with:
+          path: drfc_manager 
