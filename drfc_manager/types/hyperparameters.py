@@ -9,8 +9,9 @@ class ExplorationType(Enum):
     - `CATEGORICAL`: Used for clipped_ppo training algorithm.
     - `ADDITIVE_NOISE`: Used for sac training algorithm.
     """
-    CATEGORICAL = 'categorical'
-    ADDITIVE_NOISE = 'additive_noise'
+
+    CATEGORICAL = "categorical"
+    ADDITIVE_NOISE = "additive_noise"
 
 
 class LossType(Enum):
@@ -20,8 +21,9 @@ class LossType(Enum):
     - `MSE`: Mean Squared Error loss.
     - `HUBER`: Huber loss.
     """
-    MSE = 'mean squared error'
-    HUBER = 'huber'
+
+    MSE = "mean squared error"
+    HUBER = "huber"
 
 
 @dataclass
@@ -44,6 +46,7 @@ class HyperParameters:
     - `term_cond_avg_score`: Average score threshold for terminating training (default: 100000).
     - `term_cond_max_episodes`: Maximum number of episodes for terminating training (default: 100000).
     """
+
     batch_size: int = 64
     beta_entropy: float = 0.01
     discount_factor: float = 0.999

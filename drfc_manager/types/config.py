@@ -4,5 +4,5 @@ from enum import Enum
 
 @dataclass
 class ConfigEnvs(str, Enum):
-    run = 'run'
-    system = 'system'
+    run = "run"
+    system = "system"

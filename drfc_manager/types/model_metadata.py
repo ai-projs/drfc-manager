@@ -9,8 +9,9 @@ class ActionSpaceType(Enum):
     - `CONTINUOUS`: Represents continuous values on the action space, which are specified by a range.
     - `DISCRETE`: Represents discrete values on the action space, which represent specific points.
     """
-    CONTINUOUS = 'continuous'
-    DISCRETE = 'discrete'
+
+    CONTINUOUS = "continuous"
+    DISCRETE = "discrete"
 
 
 class NeuralNetwork(Enum):
@@ -21,9 +22,10 @@ class NeuralNetwork(Enum):
     - `DEEP_CONVOLUTIONAL_NETWORK`: This network includes a single fully connected layer of 64 nodes.
     - `DEEP_CONVOLUTIONAL_NETWORK_DEEP`: This network includes two fully connected layers of 512 nodes each.
     """
-    DEEP_CONVOLUTIONAL_NETWORK_SHALLOW = 'DEEP_CONVOLUTIONAL_NETWORK_SHALLOW'
-    DEEP_CONVOLUTIONAL_NETWORK = 'DEEP_CONVOLUTIONAL_NETWORK'
-    DEEP_CONVOLUTIONAL_NETWORK_DEEP = 'DEEP_CONVOLUTIONAL_NETWORK_DEEP'
+
+    DEEP_CONVOLUTIONAL_NETWORK_SHALLOW = "DEEP_CONVOLUTIONAL_NETWORK_SHALLOW"
+    DEEP_CONVOLUTIONAL_NETWORK = "DEEP_CONVOLUTIONAL_NETWORK"
+    DEEP_CONVOLUTIONAL_NETWORK_DEEP = "DEEP_CONVOLUTIONAL_NETWORK_DEEP"
 
 
 class TrainingAlgorithm(Enum):
@@ -32,8 +34,9 @@ class TrainingAlgorithm(Enum):
     - `SAC`: Stochastic Actor-Critic.
     - `PPO`: Proximal Policy Optimization.
     """
-    SAC = 'sac'
-    PPO = 'clipped_ppo'
+
+    SAC = "sac"
+    PPO = "clipped_ppo"
 
 
 class Sensor(Enum):
@@ -43,14 +46,16 @@ class Sensor(Enum):
     - `STEREO_CAMERAS`: Stereo camera sensors.
     - `LIDAR`: Light Detection and Ranging sensor.
     """
-    FRONT_FACING_CAMERA = 'FRONT_FACING_CAMERA'
-    STEREO_CAMERAS = 'STEREO_CAMERAS'
-    LIDAR = 'LIDAR'
+
+    FRONT_FACING_CAMERA = "FRONT_FACING_CAMERA"
+    STEREO_CAMERAS = "STEREO_CAMERAS"
+    LIDAR = "LIDAR"
 
 
 @dataclass
 class SteeringAngle:
     """Represents the range of steering angles."""
+
     high: float
     low: float
 
@@ -58,6 +63,7 @@ class SteeringAngle:
 @dataclass
 class Speed:
     """Represents the range of speeds."""
+
     high: float
     low: float
 
@@ -70,12 +76,14 @@ class ContinuousActionSpace:
     - `steering_angle`: Range of steering angles.
     - `speed`: Range of speeds.
     """
+
     steering_angle: SteeringAngle
     speed: Speed
 
 
 class DiscreteActionSpace(Enum):
     """Defines the discrete action space."""
+
     steering_angle = -30.0
     speed = 0.6
 
@@ -92,11 +100,13 @@ class ModelMetadata:
     - `neural_network`: Type of neural network used for training (default: `DEEP_CONVOLUTIONAL_NETWORK_SHALLOW`).
     - `sensor`: List of sensors used by the model (default: `[FRONT_FACING_CAMERA]`).
     """
+
     action_space_type: ActionSpaceType = ActionSpaceType.CONTINUOUS
     action_space: Union[ContinuousActionSpace, List[DiscreteActionSpace]] = field(
         default_factory=lambda: ContinuousActionSpace(
             steering_angle=SteeringAngle(high=30.0, low=-30.0),
-            speed=Speed(high=4.0, low=1.0))
+            speed=Speed(high=4.0, low=1.0),
+        )
     )
     version: int = 5
     training_algorithm: TrainingAlgorithm = TrainingAlgorithm.PPO

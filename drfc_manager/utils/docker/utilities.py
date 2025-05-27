@@ -33,13 +33,17 @@ def _discover_path_to_docker_composes() -> str:
     Returns:
         str: Full path to the directory containing Docker Compose files.
     """
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-    
+    project_root = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    )
+
     config_path = os.path.join(project_root, "config", "drfc-images")
     if os.path.isdir(config_path):
         return config_path + os.sep
 
-    raise FileNotFoundError("Could not locate 'config/drfc-images' directory in the project root.")
+    raise FileNotFoundError(
+        "Could not locate 'config/drfc-images' directory in the project root."
+    )
 
 
 def get_drfc_images_path():
@@ -59,4 +63,6 @@ def get_drfc_images_path():
     if cwd_candidate.exists():
         print("Using CWD path:", cwd_candidate)
         return str(cwd_candidate)
-    raise FileNotFoundError("Could not locate 'config/drfc-images' directory from any known path.")
+    raise FileNotFoundError(
+        "Could not locate 'config/drfc-images' directory from any known path."
+    )

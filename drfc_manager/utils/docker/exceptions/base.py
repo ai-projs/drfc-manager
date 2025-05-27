@@ -3,7 +3,7 @@ from typing import List
 
 class DockerError(Exception):
     """Custom exception for Docker-related errors."""
-    
+
     def __init__(self, message: str, command: List[str] = None, stderr: str = None):
         super().__init__(message)
         self.command = command
