@@ -286,7 +286,7 @@ async def health():
     try:
         with socket.create_connection(
             (target_host, target_port), timeout=HEALTH_CHECK_SOCKET_TIMEOUT
-        ) as sock:
+        ):
             socket_status = "open"
             target_reachable = True
     except socket.timeout:
