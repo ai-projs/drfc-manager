@@ -23,7 +23,9 @@ class FileUploadException(Exception):
 class FunctionConversionException(Exception):
     """Exception raised when converting a Python function to a BytesIO stream fails."""
 
-    def __init__(self, message="Failed to convert function to bytes.", original_exception=None):
+    def __init__(
+        self, message="Failed to convert function to bytes.", original_exception=None
+    ):
         """
         Initialize a FunctionConversionException.
 
