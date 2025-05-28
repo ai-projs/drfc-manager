@@ -1,6 +1,9 @@
 name: Mypy Check
 
 on:
+  push:
+    branches:
+      - dev
   pull_request:
     branches:
       - dev
@@ -35,7 +38,7 @@ jobs:
         run: poetry install --no-interaction --no-root --with dev
 
       - name: Install mypy types
-        run: poetry run mypy --install-types --non-interactive
+        run: poetry run mypy --install-types --non-interactive drfc_manager
 
       - name: Run mypy
         run: poetry run mypy drfc_manager
