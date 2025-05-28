@@ -380,6 +380,7 @@ async def health_check(containers: List[str]) -> JSONResponse:
     """Handle health check request."""
     target_host, target_port = get_target_config()
     target_ping_url = f"http://{target_host}:{target_port}/"
+    target_host = target_host if target_host else "localhost"
 
     try:
         target_reachable, socket_status, socket_errors = await check_socket_connection(

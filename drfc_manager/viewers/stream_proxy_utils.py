@@ -45,7 +45,7 @@ def parse_containers(
 
 def get_target_config(
     host: Optional[str] = None, port: Optional[int] = None
-) -> Tuple[str, int]:
+) -> Tuple[Optional[str], int]:
     """Get target host and port from environment or defaults."""
     target_host = host or os.environ.get("DR_TARGET_HOST", DEFAULT_TARGET_HOST)
     target_port = port or int(os.environ.get("DR_TARGET_PORT", DEFAULT_TARGET_PORT))
