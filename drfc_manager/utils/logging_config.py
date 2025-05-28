@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 import structlog
-from typing import Optional
+from typing import List, Optional
 
 
 def configure_logging(
@@ -33,14 +33,14 @@ def configure_logging(
     )
 
     # Configure structlog processors
-    processors = [
+    processors: List[structlog.types.Processor] = [
         structlog.stdlib.filter_by_level,
         structlog.processors.TimeStamper(fmt="iso"),
         structlog.stdlib.add_log_level,
         structlog.stdlib.add_logger_name,
         structlog.processors.StackInfoRenderer(),
         structlog.processors.format_exc_info,
-    ]
+    ]  # type: ignore[list-item]
 
     # Add JSON or console renderer
     if json_output:
