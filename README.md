@@ -5,7 +5,7 @@
   <em>A Pythonic workflow manager and wrapper for DeepRacer for Cloud (DRfC)</em>
   <br>
 <br>
-  <img src="./repo_logo.png" alt="DRfC Manager Logo">
+  <img src="./repo_logo.png" alt="DRfC Manager Logo" width="250">
   <br>
   <br>
 
