@@ -1,3 +1,4 @@
 pytest_plugins = [
-    # "tests.fixtures.docker",
+    "tests.fixtures.stream",
+    "tests.fixtures.logger",
 ]
