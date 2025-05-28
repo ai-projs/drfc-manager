@@ -35,12 +35,16 @@ streamlit = "^1.45.0"
 ruff = "^0.11.11"
 pre-commit = "^4.2.0"
 bump2version = "1.0.1"
+structlog = "^25.3.0"
 
 [tool.poetry.group.dev.dependencies]
 bump2version = "^1.0.1"
 mypy = "^1.15.0"
 types-requests = "^2.32.0.20250515"
 types-pyyaml = "^6.0.12.20250516"
+pytest = "^8.3.5"
+pytest-mock = "^3.14.1"
+pytest-asyncio = "^1.0.0"
 
 [tool.poetry.plugins.dotenv]
 ignore = "false"

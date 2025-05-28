@@ -1,5 +1,15 @@
 # drfc_manager
-> A Pythonic workflow manager and wrapper for DeepRacer for Cloud (DRfC)
+
+<div align="center">
+  <br>
+  <em>A Pythonic workflow manager and wrapper for DeepRacer for Cloud (DRfC)</em>
+  <br>
+<br>
+  <img src="./repo_logo.png" alt="DRfC Manager Logo" width="250">
+  <br>
+  <br>
+
+</div>
 
 ![Stars](https://img.shields.io/github/stars/joaocarvoli/drfc-manager)
 ![GitLab Forks](https://img.shields.io/github/forks/joaocarvoli/drfc-manager)
@@ -9,7 +19,7 @@
 ![Licence](https://img.shields.io/github/license/joaocarvoli/drfc-manager)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ai-projs/drfc-manager?utm_source=oss&utm_medium=github&utm_campaign=ai-projs%2Fdrfc-manager&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-<img src="https://d1.awsstatic.com/deepracer/Evo%20and%20Sensor%20Launch%202020/evo-spin.fdf40252632704f3b07b0a2556b3d174732ab07e.gif" alt="EVO car" width="250">
+<!-- <img src="https://d1.awsstatic.com/deepracer/Evo%20and%20Sensor%20Launch%202020/evo-spin.fdf40252632704f3b07b0a2556b3d174732ab07e.gif" alt="EVO car" width="250"> -->
 
 <details open>
 <summary><h1>Table of Contents</h1></summary>
