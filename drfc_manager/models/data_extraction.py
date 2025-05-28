@@ -1,5 +1,5 @@
 # src/models/data_extraction.py
-from typing import Optional, Tuple, Callable, Dict
+from typing import Optional, Tuple, Callable, Dict, Any
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.models.model_operations import ModelData
@@ -91,7 +91,7 @@ def extract_reward_function(
             f"{source_model}/reward_function.py"
         )
 
-        namespace = {}
+        namespace: Dict[str, Any] = {}
         exec(reward_code, namespace)
 
         reward_function = namespace.get("reward_function")

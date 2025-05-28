@@ -28,7 +28,7 @@ def log_and_passthrough(message: str):
         logger.info(message)
         return data
 
-    _log.name = f"log: {message[:30]}..."  # Optional: give the transformer a name
+    _log.name = f"log: {message[:30]}..."  # type: ignore[attr-defined]
     return _log
 
 

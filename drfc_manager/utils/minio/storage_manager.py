@@ -7,7 +7,7 @@ from minio import Minio
 from minio.error import S3Error
 from minio.commonconfig import CopySource
 
-from drfc_manager.config_env import settings
+from drfc_manager.config_env import AppConfig
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.utils.minio.utilities import (
@@ -21,6 +21,7 @@ from drfc_manager.utils.minio.exceptions.file_upload_exception import (
 )
 from drfc_manager.utils.minio.storage_client import StorageClient
 from drfc_manager.utils.logging import logger
+from drfc_manager.config_env import settings
 
 
 class StorageError(Exception):
@@ -32,7 +33,9 @@ class StorageError(Exception):
 class MinioStorageManager(StorageClient):
     """MinIO implementation of the storage client interface."""
 
-    def __init__(self, config: settings = settings):
+    def __init__(self, config: Optional[AppConfig] = None):
+        if config is None:
+            config = settings
         self._config = config.minio
         try:
             self.client = Minio(
@@ -202,6 +205,17 @@ class MinioStorageManager(StorageClient):
             raise StorageError(
                 f"Unexpected error copying {source_object_name}: {str(e)}"
             ) from e
+
+    def copy_model_files(self, prefix: str, dest_prefix: str) -> None:
+        """Copy model files from source prefix to destination prefix in S3."""
+        objects = self.client.list_objects(
+            self.config.bucket_name, prefix=prefix, recursive=True
+        )
+        for obj in objects:
+            src = obj.object_name
+            dst = src.replace(prefix, dest_prefix, 1)
+            self.copy_object(src, dst)
+            logger.info(f"Copied {src} to {dst}")
 
     def model_exists(self, model_name: str) -> bool:
         """

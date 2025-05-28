@@ -22,3 +22,5 @@ class ComposeFileType(Enum):
     ROBOMAKER_MULTI = "robomaker-multi"
     ROBOMAKER_SCRIPTS = "robomaker-scripts"
     SIMAPP = "simapp"
+
+    CWLOG = "cwlog"

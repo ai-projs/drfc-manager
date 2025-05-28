@@ -1,10 +1,15 @@
-from typing import List
+from typing import List, Optional
 
 
 class DockerError(Exception):
     """Custom exception for Docker-related errors."""
 
-    def __init__(self, message: str, command: List[str] = None, stderr: str = None):
+    def __init__(
+        self,
+        message: str,
+        command: Optional[List[str]] = None,
+        stderr: Optional[str] = None,
+    ):
         super().__init__(message)
         self.command = command
         self.stderr = stderr

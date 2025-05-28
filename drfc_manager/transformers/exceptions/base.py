@@ -1,5 +1,10 @@
+from typing import Optional
+
+
 class BaseExceptionTransformers(Exception):
-    def __init__(self, msg: str = None, exception: Exception = None):
+    def __init__(
+        self, msg: Optional[str] = None, exception: Optional[Exception] = None
+    ):
         self.exception = exception
         self.msg = msg
 

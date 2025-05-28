@@ -43,9 +43,14 @@ def find_envs_files(envs_names: List[ConfigEnvs]) -> List[str]:
     envs_files = []
 
     envs_path = _discover_path_to_config_envs()
+    if envs_path is None:
+        raise FileNotFoundError(
+            "Could not locate 'config/' directory from current path."
+        )
+
     suffix = ".env"
 
     for env_name in envs_names:
-        envs_files.extend([envs_path + env_name + suffix])
+        envs_files.append(envs_path + env_name + suffix)
 
     return envs_files

@@ -127,6 +127,9 @@ class EnvVars:
 
     DRFC_REPO_ABS_PATH: str = "/home/insightlab/deepracer/deepracer-for-cloud"
 
+    # Prefix for simulation trace storage
+    DR_SIMTRACE_S3_PREFIX: str = ""
+
     def export_as_env_string(self) -> str:
         """Returns a single string with key=value pairs for all environment variables."""
         env_dict = {k: v for k, v in asdict(self).items() if v is not None}
@@ -151,7 +154,7 @@ class EnvVars:
         (either from os.environ if loaded, or from this class's attributes).
         """
         eval_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        config = {}
+        config: Dict[str, Any] = {}
 
         # Initialize lists
         config["CAR_COLOR"] = []
