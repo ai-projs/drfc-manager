@@ -121,13 +121,12 @@ def evaluate_pipeline(
         if clone:
             cloned_prefix = f"{model_name}-E"
             logger.info(f"Cloning model: {model_name} → {cloned_prefix}")
-            s3_bucket = os.environ.get("DR_LOCAL_S3_BUCKET")
             if model_name != cloned_prefix:
-                storage_manager.copy_directory(
-                    s3_bucket, f"{model_name}/model", f"{cloned_prefix}/model"
+                storage_manager.copy_model_files(
+                    f"{model_name}/model", f"{cloned_prefix}/model"
                 )
-                storage_manager.copy_directory(
-                    s3_bucket, f"{model_name}/ip", f"{cloned_prefix}/ip"
+                storage_manager.copy_model_files(
+                    f"{model_name}/ip", f"{cloned_prefix}/ip"
                 )
 
                 os.environ["DR_LOCAL_S3_MODEL_PREFIX"] = cloned_prefix
@@ -148,7 +147,7 @@ def evaluate_pipeline(
         yaml_length = yaml_bytes.getbuffer().nbytes
 
         s3_yaml_name = os.environ.get("DR_CURRENT_PARAMS_FILE", "eval_params.yaml")
-        s3_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX")
+        s3_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX", "unknown_model")
         yaml_key = os.path.normpath(os.path.join(s3_prefix, s3_yaml_name))
 
         storage_manager._upload_data(

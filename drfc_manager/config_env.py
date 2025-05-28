@@ -1,6 +1,6 @@
 from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import Field, HttpUrl, validator
+from pydantic import Field, validator
 
 # Load .env file if it exists
 from dotenv import load_dotenv
@@ -13,7 +13,7 @@ class MinioConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="MINIO_")
 
-    server_url: HttpUrl = Field(
+    server_url: str = Field(
         default="http://minio:9000", description="URL for the MinIO server"
     )
     access_key: str = Field(default="minioadmin", description="MinIO Access Key")
@@ -41,36 +41,36 @@ class DockerConfig(BaseSettings):
 
     # Docker daemon connection (optional)
     local_daemon_url: Optional[str] = Field(
-        None,
+        default=None,
         alias="LOCAL_SERVER_DOCKER_DAEMON",
         description="URL for local Docker daemon",
     )
     remote_daemon_url: Optional[str] = Field(
-        None,
+        default=None,
         alias="REMOTE_SERVER_DOCKER_DAEMON",
         description="URL for remote Docker daemon",
     )
 
     # Default Image Tags
     simapp_image: str = Field(
-        "awsdeepracercommunity/deepracer-simapp:5.3.3-gpu",
+        default="awsdeepracercommunity/deepracer-simapp:5.3.3-gpu",
         alias="SIMAPP_IMAGE_REPOTAG",
         description="Default DeepRacer simulation image",
     )
     minio_image: str = Field(
-        "minio/minio:latest",
+        default="minio/minio:latest",
         alias="MINIO_IMAGE_REPOTAG",
         description="Default MinIO image",
     )
 
     # Docker style configuration
     docker_style: str = Field(
-        "compose",
+        default="compose",
         alias="DR_DOCKER_STYLE",
         description="Docker style to use (compose or swarm)",
     )
     dr_docker_file_sep: str = Field(
-        " -f ", description="Separator used between docker compose files"
+        default=" -f ", description="Separator used between docker compose files"
     )
 
 
@@ -79,13 +79,16 @@ class DeepRacerConfig(BaseSettings):
 
     model_config = SettingsConfigDict(env_prefix="DR_")
 
-    run_id: int = Field(0, description="Identifier for the training/evaluation run")
-    workers: int = Field(1, description="Number of RoboMaker workers")
+    run_id: int = Field(
+        default=0, description="Identifier for the training/evaluation run"
+    )
+    workers: int = Field(default=1, description="Number of RoboMaker workers")
     docker_style: str = Field(
-        "compose", description="Docker orchestration style ('compose' or 'swarm')"
+        default="compose",
+        description="Docker orchestration style ('compose' or 'swarm')",
     )
     robomaker_mount_logs: bool = Field(
-        False, description="Mount RoboMaker logs locally"
+        default=False, description="Mount RoboMaker logs locally"
     )
 
     # Default S3 paths (can be overridden by EnvVars dataclass per run)
@@ -99,7 +102,6 @@ class DeepRacerConfig(BaseSettings):
 
     pretrained_model: bool = False
     pretrained_s3_prefix: str = ""
-    local_s3_model_prefix: str = ""
 
 
 class RedisConfig(BaseSettings):

@@ -8,9 +8,10 @@ import socket
 import tempfile
 from typing import List, Optional
 
-from fastapi import FastAPI, Request, Query
-from fastapi.responses import StreamingResponse, Response, JSONResponse
+from fastapi import FastAPI, Request, Query, Response
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.background import BackgroundTasks
 
 user_tmp = os.path.join(tempfile.gettempdir(), os.environ.get("USER", "unknown_user"))
 try:
@@ -40,7 +41,7 @@ log_formatter = logging.Formatter(
 
 # Only add console handler if explicitly requested
 console_logging = os.environ.get("DRFC_CONSOLE_LOGGING", "false").lower() == "true"
-handlers = []
+handlers: List[logging.Handler] = []
 
 if console_logging:
     stream_handler = logging.StreamHandler()
@@ -201,11 +202,13 @@ async def proxy_stream(
                             f"[{container_id}] Background task closed resources (Resp: {closed_resp}, Client: {closed_client})."
                         )
 
+            bg_tasks = BackgroundTasks()
+            bg_tasks.add_task(close_resources)
             return StreamingResponse(
                 stream_generator(),
                 media_type=media_type,
                 headers=response_headers,
-                background=close_resources,
+                background=bg_tasks,
             )
 
         else:

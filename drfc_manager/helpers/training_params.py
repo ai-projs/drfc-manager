@@ -4,10 +4,11 @@ from .files_manager import create_folder
 from datetime import datetime
 import os
 import yaml
+from typing import Dict, List, Any
 
 
-def _setting_envs(train_time: str, model_name: str) -> dict:
-    config = {}
+def _setting_envs(train_time: str, model_name: str) -> Dict[str, Any]:
+    config: Dict[str, Any] = {}
 
     config["AWS_REGION"] = os.environ.get("DR_AWS_APP_REGION", "us-east-1")
     config["JOB_TYPE"] = "TRAINING"
@@ -31,7 +32,7 @@ def _setting_envs(train_time: str, model_name: str) -> dict:
         "DR_LOCAL_S3_REWARD_KEY", "custom_files/reward_function.py"
     )
     config["ROBOMAKER_SIMULATION_JOB_ACCOUNT_ID"] = os.environ.get("", "Dummy")
-    config["NUM_WORKERS"] = os.environ.get("DR_WORKERS", 1)
+    config["NUM_WORKERS"] = int(os.environ.get("DR_WORKERS", "1"))
     config["SAGEMAKER_SHARED_S3_BUCKET"] = os.environ.get(
         "DR_LOCAL_S3_BUCKET", "bucket"
     )
@@ -48,7 +49,9 @@ def _setting_envs(train_time: str, model_name: str) -> dict:
     config["DISPLAY_NAME"] = os.environ.get("DR_DISPLAY_NAME", "racer1")
     config["RACER_NAME"] = os.environ.get("DR_RACER_NAME", "racer1")
 
-    config["REVERSE_DIR"] = os.environ.get("DR_TRAIN_REVERSE_DIRECTION", False)
+    config["REVERSE_DIR"] = (
+        os.environ.get("DR_TRAIN_REVERSE_DIRECTION", "false").lower() == "true"
+    )
     config["ALTERNATE_DRIVING_DIRECTION"] = os.environ.get(
         "DR_TRAIN_ALTERNATE_DRIVING_DIRECTION",
         os.environ.get("DR_ALTERNATE_DRIVING_DIRECTION", "false"),
@@ -76,7 +79,7 @@ def _setting_envs(train_time: str, model_name: str) -> dict:
     return config
 
 
-def writing_on_temp_training_yml(model_name: str) -> list:
+def writing_on_temp_training_yml(model_name: str) -> List[str]:
     try:
         train_time = datetime.now().strftime("%Y%m%d%H%M%S")
         config = _setting_envs(train_time, model_name)

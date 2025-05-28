@@ -132,7 +132,7 @@ def train_pipeline(
             >> echo(data=None, message="Docker stack started.")
             >> If(lambda _: check_logs_after_start)
             .Then(check_logs_step >> echo(data=None, message="Log check performed."))
-            .Else(echo(data=None, message="Skipping log check."))
+            .Else(echo(data=None, message="Skipping log check."))  # type: ignore[arg-type]
         )
     )
 

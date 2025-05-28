@@ -36,7 +36,7 @@ logger.setLevel(logging.INFO)
 if os.environ.get("DRFC_DEBUG", "false").lower() == "true":
     logger.setLevel(logging.DEBUG)
 
-handlers = []
+handlers: List[logging.Handler] = []
 
 console_logging = os.environ.get("DRFC_CONSOLE_LOGGING", "false").lower() == "true"
 
@@ -562,8 +562,8 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
                 try:
                     data["proxy_log_handles"][0].close()
                     data["proxy_log_handles"][1].close()
-                except Exception as e:
-                    logger.warning(f"Could not close proxy log handles: {e}")
+                except Exception as close_err:
+                    logger.warning(f"Could not close proxy log handles: {close_err}")
 
             return {
                 "status": "success",
@@ -587,9 +587,9 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
                 try:
                     data["proxy_log_handles"][0].close()
                     data["proxy_log_handles"][1].close()
-                except Exception as e:
+                except Exception as close_err:
                     logger.warning(
-                        f"Could not close proxy log handles on streamlit failure: {e}"
+                        f"Could not close proxy log handles on streamlit failure: {close_err}"
                     )
             return {
                 "status": "error",
@@ -597,8 +597,12 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
                 "exit_code": process.poll(),
             }
 
-    except Exception as e:
-        logger.error(f"Failed to start Streamlit viewer process: {e}", exc_info=True)
+    except Exception as exc:
+        err_msg = str(exc)
+        err_type = type(exc).__name__
+        logger.error(
+            f"Failed to start Streamlit viewer process: {err_msg}", exc_info=True
+        )
         if process and process.poll() is None:
             process.terminate()
         if stdout_file:
@@ -609,14 +613,14 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
             try:
                 data["proxy_log_handles"][0].close()
                 data["proxy_log_handles"][1].close()
-            except Exception as e:
+            except Exception as close_err:
                 logger.warning(
-                    f"Could not close proxy log handles on streamlit exception: {e}"
+                    f"Could not close proxy log handles on streamlit exception: {close_err}"
                 )
         return {
             "status": "error",
-            "error": f"Exception starting Streamlit: {str(e)}",
-            "type": type(e).__name__,
+            "error": f"Exception starting Streamlit: {err_msg}",
+            "type": err_type,
         }
 
 
@@ -711,12 +715,12 @@ def start_viewer_pipeline(
         proxy_port=proxy_port or DEFAULT_PROXY_PORT,
     )
 
-    # Set up pipeline steps
+    # Optionally stop existing viewer processes
     if update:
-        pipeline = stop_viewer_process >> get_robomaker_containers
-    else:
-        pipeline = get_robomaker_containers
+        stop_viewer_process(None)
 
+    # Build pipeline
+    pipeline = get_robomaker_containers
     pipeline = (
         pipeline
         >> wait_for_containers(delay)

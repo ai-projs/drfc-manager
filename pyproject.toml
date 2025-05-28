@@ -34,9 +34,13 @@ tqdm = "^4.67.1"
 streamlit = "^1.45.0"
 ruff = "^0.11.11"
 pre-commit = "^4.2.0"
+bump2version = "1.0.1"
 
 [tool.poetry.group.dev.dependencies]
 bump2version = "^1.0.1"
+mypy = "^1.15.0"
+types-requests = "^2.32.0.20250515"
+types-pyyaml = "^6.0.12.20250516"
 
 [tool.poetry.plugins.dotenv]
 ignore = "false"

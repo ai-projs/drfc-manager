@@ -9,7 +9,6 @@ from drfc_manager.utils.minio.storage_manager import MinioStorageManager
 from drfc_manager.config_env import settings
 from drfc_manager.evaluation.get_compose_files import get_compose_files
 from gloe import transformer
-from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.utils.logging import logger
 
 storage_manager = MinioStorageManager(settings)
@@ -44,14 +43,14 @@ def start_evaluation_stack(data: Dict[str, Any]):
         if clone:
             cloned_prefix = f"{original_prefix}-E"
             logger.info(f"Cloning requested: {original_prefix} -> {cloned_prefix}")
-            s3_bucket = os.environ.get("DR_LOCAL_S3_BUCKET")
             if model_name != cloned_prefix:
                 try:
-                    storage_manager.copy_directory(
-                        s3_bucket, f"{original_prefix}/model", f"{cloned_prefix}/model"
+                    # Copy model and ip prefixes using the new storage_manager method
+                    storage_manager.copy_model_files(
+                        f"{original_prefix}/model", f"{cloned_prefix}/model"
                     )
-                    storage_manager.copy_directory(
-                        s3_bucket, f"{original_prefix}/ip", f"{cloned_prefix}/ip"
+                    storage_manager.copy_model_files(
+                        f"{original_prefix}/ip", f"{cloned_prefix}/ip"
                     )
 
                     os.environ["DR_LOCAL_S3_MODEL_PREFIX"] = cloned_prefix
@@ -66,7 +65,8 @@ def start_evaluation_stack(data: Dict[str, Any]):
                         f"Failed to clone model from {original_prefix} to {cloned_prefix}: {e}"
                     ) from e
 
-        eval_config_dict = EnvVars.generate_evaluation_config()
+        # Generate evaluation config from the EnvVars instance attached to config
+        eval_config_dict = config.env_vars.generate_evaluation_config()
         yaml_content = yaml.dump(
             eval_config_dict,
             default_flow_style=False,
@@ -77,7 +77,7 @@ def start_evaluation_stack(data: Dict[str, Any]):
         yaml_length = yaml_bytes.getbuffer().nbytes
 
         s3_yaml_name = os.environ.get("DR_CURRENT_PARAMS_FILE", "eval_params.yaml")
-        s3_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX")
+        s3_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX", "")
         yaml_key = os.path.normpath(os.path.join(s3_prefix, s3_yaml_name))
 
         storage_manager._upload_data(
