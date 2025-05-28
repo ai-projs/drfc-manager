@@ -44,6 +44,7 @@ types-requests = "^2.32.0.20250515"
 types-pyyaml = "^6.0.12.20250516"
 pytest = "^8.3.5"
 pytest-mock = "^3.14.1"
+pytest-asyncio = "^1.0.0"
 
 [tool.poetry.plugins.dotenv]
 ignore = "false"
