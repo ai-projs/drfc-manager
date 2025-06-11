@@ -878,19 +878,18 @@ test = ["coverage[toml]", "ddt (>=1.1.1,!=1.4.3)", "mock ; python_version < \"3.
 
 [[package]]
 name = "gloe"
-version = "0.5.9"
-description = "Gloe (pronounced /ɡloʊ/, like \"glow\") is a general-purpose library made to help developers create, maintain, document, and test both operational and flow-oriented code."
+version = "0.7.0"
+description = "Gloe is a general-purpose library designed to guide developers in expressing their code as a flow."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "gloe-0.5.9-py3-none-any.whl", hash = "sha256:1d933a3db56e6ec76425f860f32d857008d68a20b35df8daa16bbafd34653c08"},
-    {file = "gloe-0.5.9.tar.gz", hash = "sha256:83a3a8bc66929e7f5d2a0ed485878badd7996e1ce659916639a14625206ae057"},
+    {file = "gloe-0.7.0-py3-none-any.whl", hash = "sha256:018d04617e8a971bcddfb1cf8a2d770efa1eb352dcd74b0abf6d3233b7ff4d0f"},
+    {file = "gloe-0.7.0.tar.gz", hash = "sha256:91e9601643f9ff806db8bfcdb19cdfe7461520a322a3aba544a98db790002be8"},
 ]
 
 [package.dependencies]
-networkx = ">=3.1,<4.0"
-typing-extensions = ">=4.7,<5.0"
+typing_extensions = ">=4.7,<5.0"
 
 [package.extras]
 plot = ["pygraphviz (>=1.11)"]
@@ -1798,26 +1797,6 @@ files = [
     {file = "nest_asyncio-1.6.0-py3-none-any.whl", hash = "sha256:87af6efd6b5e897c81050477ef65c62e2b2f35d51703cae01aff2905b1852e1c"},
     {file = "nest_asyncio-1.6.0.tar.gz", hash = "sha256:6f172d5449aca15afd6c646851f4e31e02c598d553a667e38cafa997cfec55fe"},
 ]
-
-[[package]]
-name = "networkx"
-version = "3.4.2"
-description = "Python package for creating and manipulating graphs and networks"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-files = [
-    {file = "networkx-3.4.2-py3-none-any.whl", hash = "sha256:df5d4365b724cf81b8c6a7312509d0c22386097011ad1abe274afd5e9d3bbc5f"},
-    {file = "networkx-3.4.2.tar.gz", hash = "sha256:307c3669428c5362aab27c8a1260aa8f47c4e91d3891f48be0141738d8d053e1"},
-]
-
-[package.extras]
-default = ["matplotlib (>=3.7)", "numpy (>=1.24)", "pandas (>=2.0)", "scipy (>=1.10,!=1.11.0,!=1.11.1)"]
-developer = ["changelist (==0.5)", "mypy (>=1.1)", "pre-commit (>=3.2)", "rtoml"]
-doc = ["intersphinx-registry", "myst-nb (>=1.1)", "numpydoc (>=1.8.0)", "pillow (>=9.4)", "pydata-sphinx-theme (>=0.15)", "sphinx (>=7.3)", "sphinx-gallery (>=0.16)", "texext (>=0.6.7)"]
-example = ["cairocffi (>=1.7)", "contextily (>=1.6)", "igraph (>=0.11)", "momepy (>=0.7.2)", "osmnx (>=1.9)", "scikit-learn (>=1.5)", "seaborn (>=0.13)"]
-extra = ["lxml (>=4.6)", "pydot (>=3.0.1)", "pygraphviz (>=1.14)", "sympy (>=1.10)"]
-test = ["pytest (>=7.2)", "pytest-cov (>=4.0)"]
 
 [[package]]
 name = "nodeenv"
@@ -3880,4 +3859,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "08ee23384cdff569a07060aaf9ae3e787b153120af290b2a1d236b34d8074564"
+content-hash = "499845e7447f4ad2b0117e2d9ca39754ab4dbaaba7e02778478d47bd2024e356"
