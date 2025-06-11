@@ -1,19 +1,16 @@
-from typing import Callable, Dict, Union, Optional
 import os
 import json
 
-from gloe import transformer, partial_transformer
+from gloe import transformer
 from minio import Minio as MinioClient
 
 from drfc_manager.helpers.files_manager import create_folder, delete_files_on_folder
 from drfc_manager.transformers.exceptions.base import BaseExceptionTransformers
-from drfc_manager.types.hyperparameters import HyperParameters
-from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.helpers.training_params import writing_on_temp_training_yml
 
 from drfc_manager.utils.docker.docker_manager import DockerManager
-from drfc_manager.utils.docker.exceptions.base import DockerError
+from drfc_manager.utils.docker.exceptions import DockerError
 from drfc_manager.utils.minio.storage_manager import MinioStorageManager, StorageError
 from drfc_manager.utils.minio.utilities import function_to_bytes_buffer
 from drfc_manager.utils.minio.exceptions.file_upload_exception import (
@@ -31,7 +28,46 @@ docker_manager = DockerManager(settings)
 
 
 @transformer
-def create_sagemaker_temp_files(_) -> None:
+def create_training_data_directories(data):
+    """Create the necessary directory structure for training data."""
+    try:
+        # Create the main custom_files directory in the current directory
+        custom_files_dir = os.path.join(os.getcwd(), "custom_files")
+        create_folder(custom_files_dir, 0o777)
+
+        # Create the iteration_data directory
+        iteration_data_dir = os.path.join(custom_files_dir, "iteration_data")
+        create_folder(iteration_data_dir, 0o777)
+
+        # Create the agent directory
+        agent_dir = os.path.join(iteration_data_dir, "agent")
+        create_folder(agent_dir, 0o777)
+
+        # Create the training-simtrace directory
+        training_simtrace_dir = os.path.join(agent_dir, "training-simtrace")
+        create_folder(training_simtrace_dir, 0o777)
+
+        # Create an empty iteration.csv file
+        iteration_csv_path = os.path.join(training_simtrace_dir, "iteration.csv")
+        if not os.path.exists(iteration_csv_path):
+            with open(iteration_csv_path, "w"):
+                pass
+            os.chmod(iteration_csv_path, 0o666)
+
+        logger.info("Created training data directory structure successfully")
+    except PermissionError as e:
+        raise BaseExceptionTransformers(
+            f"Permission denied creating training data directories: {e}", e
+        )
+    except Exception as e:
+        raise BaseExceptionTransformers(
+            f"Failed to create training data directories: {e}", e
+        )
+    return data
+
+
+@transformer
+def create_sagemaker_temp_files(data):
     try:
         create_folder(sagemaker_temp_dir, 0o770)
     except PermissionError as e:
@@ -40,10 +76,11 @@ def create_sagemaker_temp_files(_) -> None:
         )
     except Exception as e:
         raise BaseExceptionTransformers(f"Failed to create {sagemaker_temp_dir}", e)
+    return data
 
 
 @transformer
-def check_if_metadata_is_available(_) -> None:
+def check_if_metadata_is_available(data):
     try:
         create_folder(work_directory)
         delete_files_on_folder(work_directory)
@@ -53,30 +90,31 @@ def check_if_metadata_is_available(_) -> None:
         )
     except Exception as e:
         raise BaseExceptionTransformers(f"Failed to setup {work_directory}", e)
+    return data
 
 
-@partial_transformer
-def upload_hyperparameters(_, hyperparameters: HyperParameters):
+@transformer
+def upload_hyperparameters(data):
     try:
-        storage_manager.upload_hyperparameters(hyperparameters)
+        storage_manager.upload_hyperparameters(data["hyperparameters"])
     except Exception as e:
         raise BaseExceptionTransformers("Failed to upload hyperparameters", e)
+    return data
 
 
-@partial_transformer
-def upload_metadata(_, model_metadata: ModelMetadata):
+@transformer
+def upload_metadata(data):
     try:
-        storage_manager.upload_model_metadata(model_metadata)
+        storage_manager.upload_model_metadata(data["model_metadata"])
     except Exception as e:
         raise BaseExceptionTransformers("Failed to upload model metadata", e)
+    return data
 
 
-@partial_transformer
-def upload_reward_function(
-    _,
-    reward_function: Union[Callable[[Dict], float], str],
-    object_name: Optional[str] = None,
-):
+@transformer
+def upload_reward_function(data):
+    reward_function = data.get("reward_function_code") or data.get("reward_function")
+    object_name = data.get("reward_function_obj_location_custom")
     if object_name is None:
         object_name = f"{storage_manager.config.custom_files_folder}/reward_function.py"
     try:
@@ -92,6 +130,7 @@ def upload_reward_function(
             )
     except Exception as e:
         raise FileUploadException("reward_function.py", str(e)) from e
+    return data
 
 
 def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
@@ -102,8 +141,9 @@ def verify_object_exists(minio_client: MinioClient, object_name: str) -> bool:
         return False
 
 
-@partial_transformer
-def upload_training_params_file(_, model_name: str):
+@transformer
+def upload_training_params_file(data):
+    model_name = data["model_name"]
     local_yaml_path = None
     try:
         logger.info("Generating local training_params.yaml...")
@@ -135,13 +175,14 @@ def upload_training_params_file(_, model_name: str):
                 logger.warning(
                     f"Failed to remove temporary file {local_yaml_path}: {e}"
                 )
+    return data
 
 
 @transformer
-def start_training(_):
+def start_training(data):
     try:
         logger.info("Attempting to start DeepRacer Docker stack...")
-        docker_manager.cleanup_previous_run(prune_system=True)
+        docker_manager.cleanup_previous_run(prune=True)
         docker_manager.start_deepracer_stack()
         logger.info("DeepRacer Docker stack started successfully.")
     except DockerError as e:
@@ -150,40 +191,39 @@ def start_training(_):
     except Exception as e:
         logger.error(f"Unexpected error starting stack: {type(e).__name__}: {e}")
         raise BaseExceptionTransformers("Unexpected error during stack startup", e)
+    return data
 
 
 @transformer
-def stop_training_transformer(_):
+def stop_training_transformer(data):
     try:
         logger.info("Stopping DeepRacer Docker stack via transformer...")
-        docker_manager.cleanup_previous_run(prune_system=False)
+        docker_manager.cleanup_previous_run(prune=False)
         logger.info("DeepRacer Docker stack stopped via transformer.")
     except Exception as e:
         raise BaseExceptionTransformers(
             "It was not possible to stop the training via transformer", e
         )
+    return data
 
 
 @transformer
-def check_training_logs_transformer(_):
+def check_training_logs_transformer(data):
     try:
         docker_manager.check_logs("redis")
         docker_manager.check_logs("rl_coach")
         docker_manager.check_logs("robomaker")
         logger.info("Log check complete.")
-        return True
+        return data
     except Exception as e:
         logger.error(f"Error checking logs: {e}")
-        return False
+        return data
 
 
-@partial_transformer
-def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> None:
-    """
-    Loads key DR_* environment variables into the current Python process environment.
-    Needed primarily for helpers like writing_on_temp_training_yml that read os.environ.
-    Container environment variables are set separately by DockerManager.
-    """
+@transformer
+def expose_config_envs_from_dataclass(data):
+    model_name = data["model_name"]
+    bucket_name = data["bucket_name"]
     try:
         env_loader = EnvVars(
             DR_LOCAL_S3_MODEL_PREFIX=model_name,
@@ -196,22 +236,19 @@ def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> N
         )
     except Exception as e:
         logger.warning(f"Failed to load DR_* vars into process environment: {e}")
+    return data
 
 
-@partial_transformer
-def upload_ip_config(_, model_name: str):
-    """Upload Redis IP config (ip.json and done flag) to S3"""
-    # Determine Redis host (Docker DNS name)
+@transformer
+def upload_ip_config(data):
+    model_name = data["model_name"]
     redis_host = os.environ.get("REDIS_HOST", settings.redis.host)
-    # Prepare IP config
     ip_config = {"IP": redis_host}
     object_name = f"{model_name}/ip/ip.json"
     data_bytes = json.dumps(ip_config).encode("utf-8")
-    # Upload ip.json
     storage_manager._upload_data(
         object_name, data_bytes, len(data_bytes), "application/json"
     )
-    # Upload done flag
     done_key = f"{model_name}/ip/done"
     storage_manager._upload_data(
         done_key, b"done", len(b"done"), "application/octet-stream"
@@ -219,3 +256,4 @@ def upload_ip_config(_, model_name: str):
     logger.info(
         f"Uploaded Redis IP config to {object_name} and done flag to {done_key}"
     )
+    return data
