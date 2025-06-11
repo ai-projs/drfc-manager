@@ -82,13 +82,18 @@ class DeepRacerConfig(BaseSettings):
     run_id: int = Field(
         default=0, description="Identifier for the training/evaluation run"
     )
-    workers: int = Field(default=1, description="Number of RoboMaker workers")
+    num_workers: int = Field(default=1, description="Number of RoboMaker workers")
     docker_style: str = Field(
         default="compose",
         description="Docker orchestration style ('compose' or 'swarm')",
     )
     robomaker_mount_logs: bool = Field(
         default=False, description="Mount RoboMaker logs locally"
+    )
+    compose_dir: str = Field(
+        default="",
+        alias="DR_OTHER_COMPOSE_DIR",
+        description="Optional path to external Docker Compose files directory (e.g. deepracer-for-cloud/docker)",
     )
 
     # Default S3 paths (can be overridden by EnvVars dataclass per run)

@@ -14,6 +14,7 @@ class EnvVars:
     DR_CAR_NAME: str = "FastCar"
     DR_CAR_BODY_SHELL_TYPE: str = "deepracer"
     DR_CAR_COLOR: str = "Red"
+    DR_CURRENT_PARAMS_FILE: str = ""
 
     DR_DISPLAY_NAME: str = "FastCar"  # Copied from DR_CAR_NAME
     DR_RACER_NAME: str = "FastCar"  # Copied from DR_CAR_NAME
@@ -113,6 +114,10 @@ class EnvVars:
     DR_DOCKER_STYLE: str = "compose"
     DR_HOST_X: bool = False
 
+    # --- Redis Configuration (Added) ---
+    REDIS_HOST: Optional[str] = "redis"
+    REDIS_PORT: Optional[int] = 6379
+
     # --- Resource Allocation & Ports ---
     DR_WEBVIEWER_PORT: int = 8100
     DR_ROBOMAKER_TRAIN_PORT: str = "8080"
@@ -126,6 +131,9 @@ class EnvVars:
     DR_TELEGRAF_PORT: str = "8092"
 
     DRFC_REPO_ABS_PATH: str = "/home/insightlab/deepracer/deepracer-for-cloud"
+    ROBOMAKER_COMMAND: str = "/opt/simapp/run.sh run distributed_training.launch"
+    DR_ROBOMAKER_MOUNT_SIMAPP_DIR: str = "/opt/simapp"
+    DR_ROBOMAKER_MOUNT_SCRIPTS_DIR: str = "/scripts"
 
     # Prefix for simulation trace storage
     DR_SIMTRACE_S3_PREFIX: str = ""
