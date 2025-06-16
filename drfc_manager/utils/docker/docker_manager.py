@@ -4,32 +4,41 @@ import time
 from typing import List, Tuple, Optional, Dict
 
 from drfc_manager.config_env import settings
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.redis.manager import RedisManager
 from drfc_manager.types.docker import ComposeFileType
 from drfc_manager.utils.logging import logger
 from drfc_manager.utils.paths import get_comms_dir
+from drfc_manager.utils.env_utils import get_subprocess_env
 
 
 class DockerManager:
     """Handles Docker setup, execution, and cleanup for DeepRacer training using python-on-whales."""
 
-    def __init__(self, config=settings):
+    def __init__(self, config=settings, env_vars: Optional[EnvVars] = None):
         self.config = config
-        self.project_name = f"deepracer-{self.config.deepracer.run_id}"
+        self.env_vars = EnvVars()
+        if env_vars:
+            self.env_vars.update(**{k: v for k, v in env_vars.__dict__.items() if not k.startswith('_')})
+            self.env_vars.load_to_environment()
+        run_id = getattr(self.env_vars, 'DR_RUN_ID', 0)
+        self.project_name = f"deepracer-{run_id}"
         self.redis_manager = RedisManager(config)
 
     def _run_command(
-        self, command: List[str], check: bool = True, capture: bool = True
+        self, command: List[str], check: bool = True, capture: bool = True, 
+        env: Optional[Dict[str, str]] = None
     ) -> subprocess.CompletedProcess:
         logger.debug(f"Executing: {' '.join(command)}")
         try:
+            env = get_subprocess_env(self.env_vars)
             result = subprocess.run(
                 command,
                 check=check,
                 capture_output=capture,
                 text=True,
-                env=os.environ.copy(),
+                env=env,
             )
             if capture and result.stdout:
                 logger.debug(f"Stdout:\n{result.stdout}")
@@ -73,9 +82,9 @@ class DockerManager:
 
     def _get_compose_file_paths(self, file_types: List[ComposeFileType]) -> List[str]:
         """Get full paths for compose files."""
-        from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
+        from drfc_manager.utils.docker.utilities import adjust_composes_file_names
 
-        return _adjust_composes_file_names(
+        return adjust_composes_file_names(
             [file_type.value for file_type in file_types]
         )
 
@@ -90,11 +99,11 @@ class DockerManager:
 
         compose_file_types = [ComposeFileType.KEYS, ComposeFileType.ENDPOINT]
 
-        if self.config.deepracer.robomaker_mount_logs:
+        if getattr(self.env_vars, 'DR_ROBOMAKER_MOUNT_LOGS', False):
             compose_file_types.append(ComposeFileType.MOUNT)
 
         multi_added = False
-        if workers > 1 and self.config.docker.docker_style != "swarm":
+        if workers > 1 and getattr(self.env_vars, 'DR_DOCKER_STYLE', 'compose') != "swarm":
             if self._setup_multiworker_env():
                 compose_file_types.append(ComposeFileType.ROBOMAKER_MULTI)
                 multi_added = True
@@ -107,8 +116,10 @@ class DockerManager:
     def _setup_multiworker_env(self) -> bool:
         """Set up environment for multiple workers."""
         try:
-            comms_dir = get_comms_dir(self.config.deepracer.run_id)
-            os.environ["DR_DIR"] = str(comms_dir.parent.parent)  # Set to tmp directory
+            run_id = getattr(self.env_vars, 'DR_RUN_ID', 0) if self.env_vars else 0
+            comms_dir = get_comms_dir(run_id)
+            self.env_vars.update(DR_DIR=str(comms_dir.parent.parent))
+            self.env_vars.load_to_environment()
             logger.info(f"Created comms dir: {comms_dir}")
             return True
         except OSError as e:
@@ -119,45 +130,75 @@ class DockerManager:
 
     def _set_runtime_env_vars(self, workers: int):
         """Set environment variables for Docker Compose."""
-        os.environ["DR_ROBOMAKER_GUI_PORT"] = str(
-            self.config.deepracer.robomaker_gui_port_base + self.config.deepracer.run_id
-        )
-        os.environ["DR_ROBOMAKER_TRAIN_PORT"] = str(
-            self.config.deepracer.robomaker_train_port_base
-            + self.config.deepracer.run_id
-        )
-        os.environ["DR_CURRENT_PARAMS_FILE"] = (
-            self.config.deepracer.local_s3_training_params_file
-        )
-        os.environ["DR_RUN_ID"] = str(self.config.deepracer.run_id)
-        os.environ["REDIS_HOST"] = self.config.redis.host
-        os.environ["REDIS_PORT"] = str(self.config.redis.port)
-
+        logger.info("Setting up runtime environment variables...")
+        
+        logger.info(f"Initial EnvVars state: {self.env_vars}")
+        
+        params_file = getattr(self.env_vars, 'DR_LOCAL_S3_TRAINING_PARAMS_FILE', 'training_params.yaml')
+        
+        # Update with required values
+        required_vars = {
+            'DR_CURRENT_PARAMS_FILE': params_file,
+            'DR_CAMERA_KVS_ENABLE': False,
+            'DR_SIMAPP_SOURCE': self.env_vars.DR_SIMAPP_SOURCE,
+            'DR_SIMAPP_VERSION': self.env_vars.DR_SIMAPP_VERSION,
+            'DR_WORLD_NAME': self.env_vars.DR_WORLD_NAME,
+            'DR_KINESIS_STREAM_NAME': self.env_vars.DR_KINESIS_STREAM_NAME,
+            'DR_GUI_ENABLE': self.env_vars.DR_GUI_ENABLE,
+            'DR_ROBOMAKER_TRAIN_PORT': self.env_vars.DR_ROBOMAKER_TRAIN_PORT,
+            'DR_ROBOMAKER_GUI_PORT': self.env_vars.DR_ROBOMAKER_GUI_PORT,
+            'DR_LOCAL_ACCESS_KEY_ID': self.env_vars.DR_LOCAL_ACCESS_KEY_ID,
+            'DR_LOCAL_SECRET_ACCESS_KEY': self.env_vars.DR_LOCAL_SECRET_ACCESS_KEY,
+            'DR_LOCAL_S3_PRETRAINED': self.env_vars.DR_LOCAL_S3_PRETRAINED,
+            'DR_LOCAL_S3_PRETRAINED_PREFIX': self.env_vars.DR_LOCAL_S3_PRETRAINED_PREFIX,
+            'DR_LOCAL_S3_PRETRAINED_CHECKPOINT': self.env_vars.DR_LOCAL_S3_PRETRAINED_CHECKPOINT,
+            'DR_LOCAL_S3_HYPERPARAMETERS_KEY': self.env_vars.DR_LOCAL_S3_HYPERPARAMETERS_KEY,
+            'DR_LOCAL_S3_MODEL_METADATA_KEY': self.env_vars.DR_LOCAL_S3_MODEL_METADATA_KEY,
+            'REDIS_HOST': self.env_vars.REDIS_HOST,
+            'REDIS_PORT': self.env_vars.REDIS_PORT,
+            'DR_MINIO_URL': self.env_vars.DR_MINIO_URL
+        }
+        
+        self.env_vars.update(**required_vars)
+        self.env_vars.load_to_environment()
+        logger.info("Updated environment variables with required values")
+        
         if workers > 1:
-            os.environ["ROBOMAKER_COMMAND"] = (
-                "/opt/simapp/run.sh multi distributed_training.launch"
-            )
+            self.env_vars.update(DR_DR_ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
+            self.env_vars.load_to_environment()
+            logger.info("Set RoboMaker command for distributed training")
         else:
-            os.environ["ROBOMAKER_COMMAND"] = (
-                "/opt/simapp/run.sh run distributed_training.launch"
-            )
-        logger.info(f"ROBOMAKER_COMMAND set to: {os.environ.get('ROBOMAKER_COMMAND')}")
+            self.env_vars.update(DR_DR_ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
+            self.env_vars.load_to_environment()
+            logger.info("Set RoboMaker command for single worker")
+        
+        self.env_vars.load_to_environment()
+        logger.info("Loaded all environment variables")
+        
+        critical_vars = ['DR_SIMAPP_SOURCE', 'DR_SIMAPP_VERSION', 'REDIS_HOST', 'REDIS_PORT', 'DR_MINIO_URL']
+        missing_vars = [var for var in critical_vars if not os.environ.get(var)]
+        if missing_vars:
+            logger.error(f"Missing critical environment variables in os.environ: {', '.join(missing_vars)}")
+            logger.error(f"Current os.environ state: {dict(os.environ)}")
+            raise DockerError(f"Missing critical environment variables: {', '.join(missing_vars)}")
+        logger.info("Verified all critical environment variables are set in os.environ")
 
     def start_deepracer_stack(self):
-        """Start the DeepRacer Docker stack with all required services."""
-        workers = self.config.deepracer.workers
-        logger.info(
-            f"Starting DeepRacer stack for project {self.project_name} with {workers} workers..."
-        )
-
-        compose_files, multi_added = self._prepare_compose_files(workers)
-        temp_compose_path = compose_files[0]
-        logger.info(f"Using compose files: {compose_files}")
-
-        # 3. Set runtime environment variables
-        self._set_runtime_env_vars(workers)
-
+        """Start the DeepRacer Docker stack."""
         try:
+            logger.info("Starting DeepRacer Docker stack...")
+            
+            # Prepare Docker Compose file
+            compose_files, multi_added = self._prepare_compose_files(self.env_vars.DR_WORKERS)
+            temp_compose_path = compose_files[0]
+            logger.info(f"Using Docker Compose files: {compose_files}")
+            
+            # Set environment variables
+            self._set_runtime_env_vars(self.env_vars.DR_WORKERS)
+            logger.info("Environment variables set successfully")
+            
+            # Start the stack
+            logger.info("Starting Docker Compose stack...")
             cmd = ["docker", "compose"]
             for file in compose_files:
                 cmd.extend(["-f", file])
@@ -172,27 +213,60 @@ class DockerManager:
                 ]
             )
 
-            if workers > 1 and multi_added:
-                cmd.extend(["--scale", f"robomaker={workers}"])
-            elif workers > 1 and not multi_added:
+            if self.env_vars.DR_WORKERS > 1 and multi_added:
+                cmd.extend(["--scale", f"robomaker={self.env_vars.DR_WORKERS}"])
+            elif self.env_vars.DR_WORKERS > 1 and not multi_added:
                 logger.warning(
                     "Not scaling RoboMaker because robomaker-multi config was not included."
                 )
 
-            self._run_command(cmd)
+            # Log the full command and environment before executing
+            logger.debug(f"Executing Docker Compose command: {' '.join(cmd)}")
+            logger.debug("Current environment variables:")
+            for var in sorted(os.environ.keys()):
+                if var.startswith('DR_'):
+                    logger.debug(f"{var}={os.environ[var]}")
 
+            env = get_subprocess_env(self.env_vars)
+            self._run_command(cmd, env=env)
+
+            # Wait for services to be ready
+            logger.info("Waiting for services to be ready...")
+            time.sleep(5)  # Give services time to start
+            
+            # Check Redis container
+            logger.info("Checking Redis container status...")
+            redis_status = self._run_command(["docker", "ps", "--filter", "name=redis", "--format", "{{.Status}}"], check=False)
+            logger.info(f"Redis container status: {redis_status.stdout.strip()}")
+            
+            # Check Redis logs
+            logger.info("Checking Redis logs...")
+            redis_logs = self._run_command(["docker", "logs", f"{self.project_name}-redis-1"], check=False)
+            logger.info(f"Redis logs:\n{redis_logs.stdout}")
+            
+            # Check RoboMaker container
+            logger.info("Checking RoboMaker container status...")
+            robomaker_status = self._run_command(["docker", "ps", "--filter", "name=robomaker", "--format", "{{.Status}}"], check=False)
+            logger.info(f"RoboMaker container status: {robomaker_status.stdout.strip()}")
+            
+            # Check RoboMaker logs
+            logger.info("Checking RoboMaker logs...")
+            robomaker_logs = self._run_command(["docker", "logs", f"{self.project_name}-robomaker-1"], check=False)
+            logger.info(f"RoboMaker logs:\n{robomaker_logs.stdout}")
+            
+            logger.info("DeepRacer Docker stack started successfully")
+            
         except Exception as e:
-            raise DockerError(f"Failed to start DeepRacer stack: {e}")
+            logger.error(f"Failed to start DeepRacer Docker stack: {str(e)}")
+            raise DockerError(f"Failed to start DeepRacer Docker stack: {str(e)}") from e
         finally:
             self._cleanup_temp_file(temp_compose_path)
-
-        self.check_container_status(workers)
 
     def _cleanup_temp_file(self, file_path: str):
         """Clean up temporary file if it exists."""
         if file_path and os.path.exists(file_path):
             try:
-                # os.remove(file_path)
+                os.remove(file_path)
                 logger.info(f"Cleaned up temporary file {file_path}")
             except OSError as e:
                 logger.warning(f"Failed to remove temporary file {file_path}: {e}")

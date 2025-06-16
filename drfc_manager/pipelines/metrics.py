@@ -7,7 +7,7 @@ from pathlib import Path
 
 from drfc_manager.config_env import settings
 from drfc_manager.types.docker import ComposeFileType
-from drfc_manager.utils.docker.utilities import _adjust_composes_file_names
+from drfc_manager.utils.docker.utilities import adjust_composes_file_names
 from drfc_manager.utils.logging import logger, setup_logging
 
 
@@ -76,9 +76,9 @@ def get_metrics_compose_files() -> str:
         compose_types.append(ComposeFileType.AWS)
 
     compose_file_names = [ct.value for ct in compose_types]
-    compose_file_paths = _adjust_composes_file_names(compose_file_names)
+    compose_file_paths = adjust_composes_file_names(compose_file_names)
 
-    separator = os.environ.get("DR_DOCKER_FILE_SEP", " -f ")
+    separator = settings.docker.dr_docker_file_sep
     return separator.join(f for f in compose_file_paths if f)
 
 

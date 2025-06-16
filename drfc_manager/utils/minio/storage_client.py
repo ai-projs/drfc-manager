@@ -1,6 +1,5 @@
-# src/storage/storage_interface.py
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Union, Any
+from typing import Dict, Optional, Union
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from typing import Callable
@@ -8,12 +7,6 @@ from typing import Callable
 
 class StorageClient(ABC):
     """Abstract base class defining the storage client interface."""
-
-    @property
-    @abstractmethod
-    def config(self) -> Any:
-        """Get the storage configuration."""
-        pass
 
     @abstractmethod
     def download_json(self, object_name: str) -> Dict:

@@ -1,5 +1,4 @@
 import streamlit as st
-import os
 import json
 import requests
 import logging
@@ -9,10 +8,27 @@ from pathlib import Path
 import streamlit.components.v1 as components
 import time
 
+from drfc_manager.types.env_vars import EnvVars
+from drfc_manager.utils.logging_config import get_logger
+
+env_vars = EnvVars()
+env_vars.load_to_environment()
+
+logger = get_logger(__name__)
+
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
 MODAL_WIDTH = 800
-user_tmp = Path(tempfile.gettempdir()) / os.environ.get("USER", "unknown_user")
+user_tmp = Path(tempfile.gettempdir()) / env_vars.USER
+
+run_id = env_vars.DR_RUN_ID
+model_name = env_vars.DR_LOCAL_S3_MODEL_PREFIX
+
+st.set_page_config(
+    page_title=f"DeepRacer Viewer - Run {run_id}",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 try:
     user_tmp.mkdir(parents=True, exist_ok=True)
 except Exception as e:
@@ -28,7 +44,7 @@ log_formatter = logging.Formatter(
 )
 logger = logging.getLogger("streamlit_viewer")
 logger.setLevel(logging.INFO)
-if os.environ.get("DRFC_DEBUG", "false").lower() == "true":
+if env_vars.DRFC_DEBUG:
     logger.setLevel(logging.DEBUG)
 
 if not logger.handlers:
@@ -54,8 +70,8 @@ def init_session_state():
         "proxy_error_message": None,
         "selected_container": "All",
         "selected_camera": "All",
-        "quality": int(os.environ.get("DR_VIEWER_QUALITY", "75")),
-        "width": int(os.environ.get("DR_VIEWER_WIDTH", "480")),
+        "quality": env_vars.DR_VIEWER_QUALITY,
+        "width": env_vars.DR_VIEWER_WIDTH,
     }
     for key, default_value in defaults.items():
         if key not in st.session_state:
@@ -67,29 +83,17 @@ def clear_modal_state():
     st.session_state.expanded_stream = None
 
 
-def load_containers_from_env() -> List[str]:
-    containers_str = os.environ.get("DR_VIEWER_CONTAINERS", "[]")
-    try:
-        parsed_containers = json.loads(containers_str)
-        if isinstance(parsed_containers, list) and all(
-            isinstance(item, str) for item in parsed_containers
-        ):
-            logger.info(f"Loaded {len(parsed_containers)} containers from environment.")
-            logger.debug(f"Containers: {parsed_containers}")
-            return parsed_containers
-        else:
-            logger.warning(
-                f"DR_VIEWER_CONTAINERS was not a list of strings: '{containers_str}'."
-            )
+def load_containers_from_env() -> list:
+    containers_str = env_vars.DR_VIEWER_CONTAINERS
+    logger.info("DEBUG: DR_VIEWER_CONTAINERS from os.environ: %s", containers_str)
+    if containers_str:
+        try:
+            return json.loads(containers_str)
+        except Exception as e:
+            logger.warning("Error parsing DR_VIEWER_CONTAINERS: %s", e)
+            st.write("DEBUG: Exception parsing containers_str:", str(e))
             return []
-    except json.JSONDecodeError:
-        logger.error(f"Failed to parse DR_VIEWER_CONTAINERS JSON: '{containers_str}'.")
-        return []
-    except Exception as e:
-        logger.error(
-            f"Unexpected error loading DR_VIEWER_CONTAINERS: {e}", exc_info=True
-        )
-        return []
+    return []
 
 
 def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
@@ -336,17 +340,13 @@ def _determine_streams_to_display(
     )
     return streams_to_show
 
-
 init_session_state()
 
-run_id = int(os.environ.get("DR_RUN_ID", "0"))
-model_name = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX", "unknown-model")
-
-if not st.session_state.containers:
+if "containers" not in st.session_state or not st.session_state.containers:
     st.session_state.containers = load_containers_from_env()
 containers = st.session_state.containers
 
-proxy_port = int(os.environ.get("DR_PROXY_PORT", "8090"))
+proxy_port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
 proxy_url = f"http://localhost:{proxy_port}"
 
 cameras = [
@@ -372,12 +372,6 @@ cameras = [
     },
 ]
 camera_map = {cam["id"]: cam for cam in cameras}
-
-st.set_page_config(
-    page_title=f"DeepRacer Viewer - Run {run_id}",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.title("🏎️ DeepRacer Run Viewer")
 

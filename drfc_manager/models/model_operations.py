@@ -1,4 +1,3 @@
-# src/models/model_operations.py
 from dataclasses import dataclass
 from typing import Optional, Callable, Dict
 from drfc_manager.types.hyperparameters import HyperParameters

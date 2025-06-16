@@ -2,17 +2,22 @@ import os
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any
 import datetime
-from drfc_manager.types.constants import DEFAULT_TARGET_HOST, DEFAULT_TARGET_PORT, DEFAULT_TOPIC
+from drfc_manager.types.constants import (
+    DEFAULT_TARGET_HOST,
+    DEFAULT_TARGET_PORT,
+    DEFAULT_TOPIC,
+)
 from drfc_manager.utils.str_to_bool import str2bool
+
 
 @dataclass
 class EnvVars:
     _instance = None
-    
+
     # Redis configuration
     REDIS_HOST: str = "redis"
     REDIS_PORT: int = 6379
-    
+
     # DeepRacer configuration
     DR_RUN_ID: int = 0
     DR_WORLD_NAME: str = "reInvent2019_wide_ccw"
@@ -20,16 +25,16 @@ class EnvVars:
     DR_GUI_ENABLE: bool = False
     DR_ROBOMAKER_TRAIN_PORT: int = 8080
     DR_ROBOMAKER_GUI_PORT: int = 5900
-    
+
     # S3 configuration
     DR_LOCAL_S3_BUCKET: str = "bucket"
     DR_LOCAL_S3_CUSTOM_FILES_PREFIX: str = "custom_files"
     DR_LOCAL_S3_TRAINING_PARAMS_FILE: str = "training_params.yaml"
     DR_LOCAL_S3_EVAL_PARAMS_FILE: str = "eval_params.yaml"
-    
+
     # AWS configuration
     DR_AWS_APP_REGION: str = "us-east-1"
-    
+
     # MinIO configuration
     DR_MINIO_HOST: str = "minio"
     DR_MINIO_HOST_API: str = "localhost"
@@ -144,14 +149,14 @@ class EnvVars:
     DR_HOST_X: bool = False
     DR_DISPLAY: Optional[str] = None
     DR_XAUTHORITY: Optional[str] = None
-    
+
     DR_DIR: str = "/tmp/drfc"
 
     # --- Debugging ---
     DRFC_CONSOLE_LOGGING: bool = False
     DRFC_DEBUG: bool = False
     USER: str = os.environ.get("USER", "unknown_user")
-    
+
     # --- Stream Proxy ---
     DR_TARGET_HOST: str = DEFAULT_TARGET_HOST
     DR_TARGET_PORT: int = DEFAULT_TARGET_PORT
@@ -194,13 +199,16 @@ class EnvVars:
 
     def __init__(self, *args, **kwargs):
         # Only initialize if this is the first time
-        if not hasattr(self, '_initialized'):
+        if not hasattr(self, "_initialized"):
             print("Initializing EnvVars for the first time")
             self._initialized = True
             # Update with any provided values
             if args or kwargs:
                 self.update(*args, **kwargs)
-            print("After initialization, attributes:", {k: v for k, v in self.__dict__.items() if not k.startswith('_')})
+            print(
+                "After initialization, attributes:",
+                {k: v for k, v in self.__dict__.items() if not k.startswith("_")},
+            )
 
     def update(self, *args, **kwargs):
         """Update environment variables with new values."""
@@ -222,7 +230,7 @@ class EnvVars:
         env_vars = asdict(self)
         for key, value in env_vars.items():
             # Skip private attributes
-            if key.startswith('_'):
+            if key.startswith("_"):
                 continue
             # Convert boolean values to lowercase strings to be consistent with shell expectations
             if isinstance(value, bool):
@@ -273,9 +281,7 @@ class EnvVars:
 
         config["METRICS_S3_BUCKET"].append(s3_bucket)
         metrics_prefix = f"{model_prefix}/metrics"
-        config["METRICS_S3_OBJECT_KEY"].append(
-            f"{metrics_prefix}/TrainingMetrics.json"
-        )
+        config["METRICS_S3_OBJECT_KEY"].append(f"{metrics_prefix}/TrainingMetrics.json")
 
         save_mp4 = str2bool(get_env("DR_EVAL_SAVE_MP4", False))
         if save_mp4:
@@ -371,5 +377,5 @@ class EnvVars:
         return config
 
     def __repr__(self):
-        d = {k: v for k, v in self.__dict__.items() if not k.startswith('_')}
+        d = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
         return f"EnvVars({d})"

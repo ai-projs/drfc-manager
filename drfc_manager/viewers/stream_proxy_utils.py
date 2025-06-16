@@ -1,18 +1,17 @@
-import os
 import json
 from typing import List, Optional, Union, Tuple, Dict, Any
 
+from drfc_manager.types.env_vars import EnvVars
 from structlog import BoundLogger
 from drfc_manager.viewers.exceptions import StreamResponseError
 from drfc_manager.utils.logging_config import get_logger
 from drfc_manager.types.constants import (
-    DEFAULT_TARGET_HOST,
-    DEFAULT_TARGET_PORT,
     DEFAULT_CONTENT_TYPE,
     DEFAULT_MEDIA_TYPE,
 )
 
 logger = get_logger(__name__)
+env_vars = EnvVars()
 
 
 def parse_containers(
@@ -21,6 +20,9 @@ def parse_containers(
     """Parse container IDs from environment variable."""
     if not containers_str:
         return []
+
+    if logger:
+        logger.info("parsing_containers", containers_str=containers_str)
 
     try:
         containers = json.loads(containers_str)
@@ -47,8 +49,8 @@ def get_target_config(
     host: Optional[str] = None, port: Optional[int] = None
 ) -> Tuple[Optional[str], int]:
     """Get target host and port from environment or defaults."""
-    target_host = host or os.environ.get("DR_TARGET_HOST", DEFAULT_TARGET_HOST)
-    target_port = port or int(os.environ.get("DR_TARGET_PORT", DEFAULT_TARGET_PORT))
+    target_host = host or env_vars.DR_TARGET_HOST
+    target_port = port or env_vars.DR_DYNAMIC_PROXY_PORT
 
     logger.debug("target_config", host=target_host, port=target_port)
     return target_host, target_port

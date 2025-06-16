@@ -6,24 +6,31 @@ from drfc_manager.utils.logging_config import get_logger
 
 logger = get_logger(__name__)
 
+
 def get_subprocess_env(env_vars: EnvVars) -> Dict[str, str]:
     """
     Creates a copy of the current environment and updates it with values from EnvVars.
     This ensures that subprocess commands have access to all necessary environment variables.
-    
+
     Args:
         env_vars: The EnvVars instance containing the environment variables
-        
+
     Returns:
         Dict[str, str]: A copy of the environment with updated variables
     """
     env = os.environ.copy()
-    
-    env.update({k: str(v) for k, v in asdict(env_vars).items() if not k.startswith('_') and v is not None})
-    
+
+    env.update(
+        {
+            k: str(v)
+            for k, v in asdict(env_vars).items()
+            if not k.startswith("_") and v is not None
+        }
+    )
+
     # logger.debug("Environment variables for subprocess:")
     # for key in sorted(env.keys()):
     #     if key.startswith('DR_'):
     #         logger.debug(f"{key}={env[key]}")
-            
+
     return env

@@ -2,11 +2,6 @@ from typing import Optional
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from pydantic import Field, validator
 
-# Load .env file if it exists
-from dotenv import load_dotenv
-
-load_dotenv()
-
 
 class MinioConfig(BaseSettings):
     """MinIO S3 Storage Configuration"""
@@ -74,36 +69,6 @@ class DockerConfig(BaseSettings):
     )
 
 
-class DeepRacerConfig(BaseSettings):
-    """Runtime configuration for DeepRacer training, aligns with DR_* env vars"""
-
-    model_config = SettingsConfigDict(env_prefix="DR_")
-
-    run_id: int = Field(
-        default=0, description="Identifier for the training/evaluation run"
-    )
-    workers: int = Field(default=1, description="Number of RoboMaker workers")
-    docker_style: str = Field(
-        default="compose",
-        description="Docker orchestration style ('compose' or 'swarm')",
-    )
-    robomaker_mount_logs: bool = Field(
-        default=False, description="Mount RoboMaker logs locally"
-    )
-
-    # Default S3 paths (can be overridden by EnvVars dataclass per run)
-    local_s3_model_prefix: str = "rl-deepracer-sagemaker"
-    local_s3_bucket: str = "tcc-experiments"
-    local_s3_training_params_file: str = "training_params.yaml"
-
-    # Ports (defaults, will be adjusted by run_id)
-    robomaker_gui_port_base: int = 6900
-    robomaker_train_port_base: int = 9080
-
-    pretrained_model: bool = False
-    pretrained_s3_prefix: str = ""
-
-
 class RedisConfig(BaseSettings):
     """Redis configuration for DeepRacer Training."""
 
@@ -128,8 +93,6 @@ class AppConfig(BaseSettings):
     redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     docker: DockerConfig = DockerConfig()
-    deepracer: DeepRacerConfig = DeepRacerConfig()
     aws: AWSConfig = AWSConfig()
-
 
 settings = AppConfig()

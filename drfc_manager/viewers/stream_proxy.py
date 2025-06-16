@@ -1,13 +1,12 @@
-import os
 import uvicorn
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.viewers.stream_proxy_routes import proxy_stream, health_check
 from drfc_manager.viewers.stream_proxy_utils import parse_containers
 from drfc_manager.utils.logging_config import get_logger
 from drfc_manager.types.constants import (
-    DEFAULT_PROXY_PORT,
     DEFAULT_TOPIC,
     DEFAULT_QUALITY,
     DEFAULT_WIDTH,
@@ -15,6 +14,7 @@ from drfc_manager.types.constants import (
 )
 
 logger = get_logger(__name__)
+env_vars = EnvVars()
 
 
 def create_app() -> FastAPI:
@@ -29,7 +29,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", "[]"))
+    containers = parse_containers(env_vars.DR_VIEWER_CONTAINERS)
 
     @app.get("/{container_id}/stream")
     async def stream_route(
@@ -42,6 +42,7 @@ def create_app() -> FastAPI:
         width: int = Query(DEFAULT_WIDTH, description="Image width", ge=1),
         height: int = Query(DEFAULT_HEIGHT, description="Image height", ge=1),
     ):
+        env_vars.load_to_environment()
         return await proxy_stream(
             request,
             container_id,
@@ -61,12 +62,12 @@ def create_app() -> FastAPI:
 
 def main():
     """Main entry point for the stream proxy server."""
-    port = int(os.environ.get("DR_PROXY_PORT", DEFAULT_PROXY_PORT))
+    port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
     host = "0.0.0.0"
 
     logger.info("starting_proxy_server", host=host, port=port)
 
-    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", "[]"))
+    containers = parse_containers(env_vars.DR_VIEWER_CONTAINERS)
     if containers:
         logger.info(
             "container_config_loaded",

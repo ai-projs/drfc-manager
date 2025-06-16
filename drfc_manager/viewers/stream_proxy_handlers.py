@@ -1,7 +1,3 @@
-"""
-Helper functions for stream proxy request handling.
-"""
-
 import time
 from typing import Optional, AsyncGenerator, Tuple
 import httpx

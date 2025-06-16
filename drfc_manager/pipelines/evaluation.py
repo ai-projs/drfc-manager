@@ -10,10 +10,13 @@ from drfc_manager.utils.docker.docker_manager import DockerManager
 from drfc_manager.utils.docker.exceptions.base import DockerError
 from drfc_manager.utils.minio.storage_manager import MinioStorageManager
 from drfc_manager.types.env_vars import EnvVars
-from drfc_manager.utils.logging import logger, setup_logging
+from drfc_manager.utils.logging import setup_logging
+from drfc_manager.utils.logging_config import get_logger
 
 storage_manager = MinioStorageManager(settings)
 docker_manager = DockerManager(settings)
+env_vars = EnvVars()
+logger = get_logger("evaluation_pipeline")
 
 
 def evaluate_pipeline(
@@ -52,71 +55,71 @@ def evaluate_pipeline(
     Returns:
         Dict[str, Any]: Results of the evaluation pipeline execution.
     """
-    effective_run_id = run_id if run_id is not None else int(os.getenv("DR_RUN_ID", 0))
+    effective_run_id = run_id if run_id is not None else env_vars.DR_RUN_ID
     log_path = setup_logging(
         run_id=effective_run_id, model_name=model_name, quiet=quiet
     )
 
-    env_vars = EnvVars(
+    env_vars.update(
         DR_RUN_ID=effective_run_id,
         DR_LOCAL_S3_MODEL_PREFIX=model_name,
         DR_LOCAL_S3_BUCKET=settings.minio.bucket_name,
     )
+    env_vars.load_to_environment()
 
     if world_name:
-        env_vars.DR_WORLD_NAME = world_name
+        env_vars.update(DR_WORLD_NAME=world_name)
     if number_of_trials is not None:
-        env_vars.DR_EVAL_NUMBER_OF_TRIALS = number_of_trials
+        env_vars.update(DR_EVAL_NUMBER_OF_TRIALS=number_of_trials)
     if is_continuous is not None:
-        env_vars.DR_EVAL_IS_CONTINUOUS = is_continuous
+        env_vars.update(DR_EVAL_IS_CONTINUOUS=is_continuous)
     if save_mp4 is not None:
-        env_vars.DR_EVAL_SAVE_MP4 = save_mp4
+        env_vars.update(DR_EVAL_SAVE_MP4=save_mp4)
     if eval_checkpoint:
-        env_vars.DR_EVAL_CHECKPOINT = eval_checkpoint
+        env_vars.update(DR_EVAL_CHECKPOINT=eval_checkpoint)
     if reset_behind_dist is not None:
-        env_vars.DR_EVAL_RESET_BEHIND_DIST = reset_behind_dist
+        env_vars.update(DR_EVAL_RESET_BEHIND_DIST=reset_behind_dist)
     if off_track_penalty is not None:
-        env_vars.DR_EVAL_OFF_TRACK_PENALTY = off_track_penalty
+        env_vars.update(DR_EVAL_OFF_TRACK_PENALTY=off_track_penalty)
     if collision_penalty is not None:
-        env_vars.DR_EVAL_COLLISION_PENALTY = collision_penalty
+        env_vars.update(DR_EVAL_COLLISION_PENALTY=collision_penalty)
     if reverse_direction is not None:
-        env_vars.DR_EVAL_REVERSE_DIRECTION = reverse_direction
+        env_vars.update(DR_EVAL_REVERSE_DIRECTION=reverse_direction)
+    env_vars.load_to_environment()
 
     logger.info(
         f"Starting evaluation pipeline for model: {model_name}, Run ID: {effective_run_id}"
     )
-    original_env_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX")
-
     stop_evaluation_pipeline(run_id=effective_run_id)
 
-    # Setup environment
-    base_webviewer_port = 8100
-    base_robomaker_port = 8080
-    base_gui_port = 5900
+    base_webviewer_port = env_vars.DR_WEBVIEWER_PORT
+    base_robomaker_port = env_vars.DR_ROBOMAKER_TRAIN_PORT
+    base_gui_port = env_vars.DR_ROBOMAKER_GUI_PORT
 
     port_offset = effective_run_id * 10
 
-    os.environ["DR_WEBVIEWER_PORT"] = str(base_webviewer_port + port_offset)
-    os.environ["DR_ROBOMAKER_EVAL_PORT"] = str(base_robomaker_port + port_offset)
-    os.environ["DR_ROBOMAKER_GUI_PORT"] = str(base_gui_port + port_offset)
-
+    env_vars.update(
+        DR_WEBVIEWER_PORT=str(base_webviewer_port + port_offset),
+        DR_ROBOMAKER_EVAL_PORT=str(base_robomaker_port + port_offset),
+        DR_ROBOMAKER_GUI_PORT=str(base_gui_port + port_offset),
+    )
     env_vars.load_to_environment()
 
-    stack_name = f"deepracer-eval-{effective_run_id}"
-    os.environ["STACK_NAME"] = stack_name
-    os.environ["ROBOMAKER_COMMAND"] = "./run.sh run evaluation.launch"
-    os.environ["DR_CURRENT_PARAMS_FILE"] = os.getenv(
-        "DR_LOCAL_S3_EVAL_PARAMS_FILE", "eval_params.yaml"
+    env_vars.update(
+        DR_CURRENT_PARAMS_FILE=env_vars.DR_LOCAL_S3_EVAL_PARAMS_FILE,
+        STACK_NAME=f"deepracer-eval-{effective_run_id}",
+        DR_DR_ROBOMAKER_COMMAND="./run.sh run evaluation.launch"
     )
+    env_vars.load_to_environment()
 
     eval_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
     env_vars.DR_SIMTRACE_S3_PREFIX = f"{model_name}/evaluation-{eval_time}"
 
     try:
-        docker_style = os.environ.get("DR_DOCKER_STYLE", "compose").lower()
+        docker_style = env_vars.DR_DOCKER_STYLE.lower()
 
-        if docker_style == "swarm" and docker_manager.list_services(stack_name):
-            raise DockerError(f"Stack {stack_name} already running")
+        if docker_style == "swarm" and docker_manager.list_services(f"deepracer-eval-{effective_run_id}"):
+            raise DockerError(f"Stack deepracer-eval-{effective_run_id} already running")
 
         if clone:
             cloned_prefix = f"{model_name}-E"
@@ -129,11 +132,9 @@ def evaluate_pipeline(
                     f"{model_name}/ip", f"{cloned_prefix}/ip"
                 )
 
-                os.environ["DR_LOCAL_S3_MODEL_PREFIX"] = cloned_prefix
-                if hasattr(settings.deepracer, "local_s3_model_prefix"):
-                    settings.deepracer.local_s3_model_prefix = cloned_prefix
-
-                env_vars.DR_LOCAL_S3_MODEL_PREFIX = cloned_prefix
+                env_vars.update(DR_LOCAL_S3_MODEL_PREFIX=cloned_prefix)
+                env_vars.load_to_environment()
+                
                 model_name = cloned_prefix
 
         eval_config_dict = env_vars.generate_evaluation_config()
@@ -146,8 +147,13 @@ def evaluate_pipeline(
         yaml_bytes = io.BytesIO(yaml_content.encode("utf-8"))
         yaml_length = yaml_bytes.getbuffer().nbytes
 
-        s3_yaml_name = os.environ.get("DR_CURRENT_PARAMS_FILE", "eval_params.yaml")
-        s3_prefix = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX", "unknown_model")
+        s3_yaml_name = env_vars.DR_CURRENT_PARAMS_FILE
+        s3_prefix = env_vars.DR_LOCAL_S3_MODEL_PREFIX
+        if not s3_prefix:
+            raise ValueError("DR_LOCAL_S3_MODEL_PREFIX is not set")
+        if not s3_yaml_name:
+            raise ValueError("DR_CURRENT_PARAMS_FILE is not set")
+
         yaml_key = os.path.normpath(os.path.join(s3_prefix, s3_yaml_name))
 
         storage_manager._upload_data(
@@ -164,11 +170,11 @@ def evaluate_pipeline(
             try:
                 if docker_style == "swarm":
                     output = docker_manager.deploy_stack(
-                        stack_name=stack_name, compose_files=compose_files_str
+                        stack_name=f"deepracer-eval-{effective_run_id}", compose_files=compose_files_str
                     )
                 else:
                     output = docker_manager.compose_up(
-                        project_name=stack_name, compose_files=compose_files_str
+                        project_name=f"deepracer-eval-{effective_run_id}", compose_files=compose_files_str
                     )
                 logger.info(f"Evaluation started successfully for {model_name}")
             except Exception as e:
@@ -177,11 +183,11 @@ def evaluate_pipeline(
         else:
             if docker_style == "swarm":
                 output = docker_manager.deploy_stack(
-                    stack_name=stack_name, compose_files=compose_files_str
+                    stack_name=f"deepracer-eval-{effective_run_id}", compose_files=compose_files_str
                 )
             else:
                 output = docker_manager.compose_up(
-                    project_name=stack_name, compose_files=compose_files_str
+                    project_name=f"deepracer-eval-{effective_run_id}", compose_files=compose_files_str
                 )
 
             if output and output.strip():
@@ -204,12 +210,11 @@ def evaluate_pipeline(
         if (
             clone
             and "cloned_prefix" in locals()
-            and os.environ.get("DR_LOCAL_S3_MODEL_PREFIX") == cloned_prefix
+            and env_vars.DR_LOCAL_S3_MODEL_PREFIX == cloned_prefix
         ):
             logger.info(f"Reverting to {model_name} after failure")
-            os.environ["DR_LOCAL_S3_MODEL_PREFIX"] = model_name
-            if hasattr(settings.deepracer, "local_s3_model_prefix"):
-                settings.deepracer.local_s3_model_prefix = model_name
+            env_vars.update(DR_LOCAL_S3_MODEL_PREFIX=model_name)
+            env_vars.load_to_environment()
 
         result = {
             "status": "error",
@@ -233,21 +238,13 @@ def stop_evaluation_pipeline(run_id: Optional[int] = None) -> Dict[str, Any]:
     Returns:
         Dict[str, Any]: Results of the stop operation.
     """
-    effective_run_id = (
-        run_id
-        if run_id is not None
-        else int(os.getenv("DR_RUN_ID", getattr(settings.deepracer, "run_id", 0)))
-    )
+    effective_run_id = run_id if run_id is not None else env_vars.DR_RUN_ID
 
     stack_name = f"deepracer-eval-{effective_run_id}"
     logger.info(f"Stopping evaluation stack: {stack_name} (Run ID: {effective_run_id})")
 
-    os.environ["DR_RUN_ID"] = str(effective_run_id)
-    if not os.environ.get("DR_DOCKER_STYLE"):
-        os.environ["DR_DOCKER_STYLE"] = getattr(
-            settings.docker, "dr_docker_style", "compose"
-        )
-
+    env_vars.update(DR_RUN_ID=str(effective_run_id))
+    env_vars.load_to_environment()
     result = stop_evaluation_stack({"stack_name": stack_name})
 
     if result and "output" in result and result["output"]:

@@ -1,7 +1,7 @@
-import os
 import time
 from typing import Callable, Dict, Optional
 
+from drfc_manager.types.env_vars import EnvVars
 from gloe import If, transformer
 from gloe.utils import forward
 from drfc_manager.transformers.training import (
@@ -41,13 +41,37 @@ from drfc_manager.models.data_extraction import extract_model_data
 from drfc_manager.utils.logging import logger, setup_logging
 
 storage_manager = MinioStorageManager(settings)
-
+env_vars = EnvVars()
 
 @transformer
 def sleep_15_seconds(_):
     """Sleep for 15 seconds before checking logs"""
     time.sleep(15)
     return _
+
+
+def _check_critical_vars(env_vars: EnvVars):
+    critical_vars = {
+        'DR_SIMAPP_SOURCE': env_vars.DR_SIMAPP_SOURCE,
+        'DR_SIMAPP_VERSION': env_vars.DR_SIMAPP_VERSION,
+        'REDIS_HOST': env_vars.REDIS_HOST
+    }
+    
+    missing_vars = [var for var, value in critical_vars.items() if not value]
+    if missing_vars:
+        logger.error(f"Missing critical environment variables: {', '.join(missing_vars)}")
+        logger.error(f"Current environment state: {critical_vars}")
+        raise DockerError(f"Missing critical environment variables: {', '.join(missing_vars)}")
+    
+
+    logger.info("Environment variables loaded:")
+    logger.info(f"DR_SIMAPP_SOURCE: {env_vars.DR_SIMAPP_SOURCE}")
+    logger.info(f"DR_SIMAPP_VERSION: {env_vars.DR_SIMAPP_VERSION}")
+    logger.info(f"REDIS_HOST: {env_vars.REDIS_HOST}")
+    logger.info(f"REDIS_PORT: {env_vars.REDIS_PORT}")
+   
+    
+    
 
 
 def train_pipeline(
@@ -59,6 +83,7 @@ def train_pipeline(
     check_logs_after_start: bool = False,
     reward_function_code: Optional[str] = None,
     quiet: bool = True,
+    env_vars: Optional[EnvVars] = None,
 ):
     """
     Orchestrates the training pipeline (using original structure).
@@ -72,14 +97,24 @@ def train_pipeline(
         check_logs_after_start (bool, optional): Check logs after stack start. Defaults to False.
         reward_function_code (Optional[str], optional): Reward function code. Defaults to None.
         quiet (bool, optional): If True, suppress console output. Defaults to True.
+        env_vars (Optional[EnvVars], optional): Environment variables to update. Defaults to None.
     """
-    settings.deepracer.run_id = int(os.getenv("DR_RUN_ID", "0"))
-    settings.deepracer.local_s3_model_prefix = model_name
+    # Get or create singleton instance and set up environment variables first
+    env_vars_instance = EnvVars()
+    
+    if env_vars:
+        env_vars_instance.update(**{k: v for k, v in env_vars.__dict__.items() if not k.startswith('_')})
+        env_vars_instance.load_to_environment()
+
+    env_vars_instance.update(DR_LOCAL_S3_MODEL_PREFIX=model_name)
+    env_vars_instance.load_to_environment()
+    
+    _check_critical_vars(env_vars_instance)
+    run_id = env_vars_instance.DR_RUN_ID
+    setup_logging(run_id=run_id, model_name=model_name, quiet=quiet)
 
     _custom_files_folder = settings.minio.custom_files_folder
-    _bucket_name = settings.minio.bucket_name
-
-    setup_logging(run_id=settings.deepracer.run_id, model_name=model_name, quiet=quiet)
+    _bucket_name = env_vars_instance.MINIO_BUCKET_NAME
 
     reward_function_obj_location_custom = f"{_custom_files_folder}/reward_function.py"
     reward_function_obj_location_model = f"{model_name}/reward_function.py"
@@ -137,7 +172,7 @@ def train_pipeline(
     )
 
     logger.info(
-        f"Starting training pipeline for model: {model_name}, Run ID: {settings.deepracer.run_id}"
+        f"Starting training pipeline for model: {model_name}, Run ID: {run_id}"
     )
     training_start_pipeline(None)
     logger.info("Training pipeline finished.")
@@ -152,8 +187,7 @@ def stop_training_pipeline():
     """
     logger.info("Attempting to stop training stack...")
     try:
-        current_run_id = int(os.getenv("DR_RUN_ID", settings.deepracer.run_id))
-        settings.deepracer.run_id = current_run_id
+        current_run_id = env_vars.DR_RUN_ID
         logger.info(f"Targeting Run ID: {current_run_id}")
 
         docker_manager = DockerManager(settings)

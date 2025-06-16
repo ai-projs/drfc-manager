@@ -81,11 +81,12 @@ class ContinuousActionSpace:
     speed: Speed
 
 
-class DiscreteActionSpace(Enum):
+@dataclass
+class DiscreteActionSpace:
     """Defines the discrete action space."""
 
-    steering_angle = -30.0
-    speed = 0.6
+    steering_angle: int
+    speed: int
 
 
 @dataclass
