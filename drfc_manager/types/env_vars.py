@@ -21,17 +21,8 @@ class EnvVars:
     # DeepRacer configuration
     DR_RUN_ID: int = 0
     DR_WORLD_NAME: str = "reInvent2019_wide_ccw"
-    DR_KINESIS_STREAM_NAME: str = ""
-    DR_GUI_ENABLE: bool = False
-    DR_ROBOMAKER_TRAIN_PORT: int = 8080
-    DR_ROBOMAKER_GUI_PORT: int = 5900
 
     # S3 configuration
-    DR_LOCAL_S3_BUCKET: str = "bucket"
-    DR_LOCAL_S3_CUSTOM_FILES_PREFIX: str = "custom_files"
-    DR_LOCAL_S3_TRAINING_PARAMS_FILE: str = "training_params.yaml"
-    DR_LOCAL_S3_EVAL_PARAMS_FILE: str = "eval_params.yaml"
-
     # AWS configuration
     DR_AWS_APP_REGION: str = "us-east-1"
 
@@ -39,8 +30,6 @@ class EnvVars:
     DR_MINIO_HOST: str = "minio"
     DR_MINIO_HOST_API: str = "localhost"
     DR_MINIO_PORT: int = 9000
-    DR_LOCAL_ACCESS_KEY_ID: str = "minioadmin"
-    DR_LOCAL_SECRET_ACCESS_KEY: str = "minioadmin123"
     MINIO_BUCKET_NAME: str = "tcc-experiments"
 
     # ------------------ run.env ------------------
