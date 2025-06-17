@@ -1,3 +1,4 @@
+from datetime import datetime
 import subprocess
 import time
 import json
@@ -7,11 +8,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from gloe import transformer
 from drfc_manager.types.env_vars import EnvVars
-from drfc_manager.utils.logging_config import get_logger
+from drfc_manager.utils.logging_config import get_logger, configure_logging
 from drfc_manager.utils.env_utils import get_subprocess_env
 
 env_vars = EnvVars()
-logger = get_logger("viewer_pipeline")
+logger = get_logger(__name__)
 
 DEFAULT_VIEWER_PORT = env_vars.DR_WEBVIEWER_PORT
 DEFAULT_PROXY_PORT = env_vars.DR_DYNAMIC_PROXY_PORT
@@ -26,6 +27,9 @@ UVICORN_PROCESS_PATTERN = "uvicorn drfc_manager.viewers.stream_proxy:app"
 PROXY_LOG_BASENAME = "stream_proxy"
 STREAMLIT_LOG_BASENAME = "streamlit_viewer"
 
+log_file_name = f"/tmp/drfc_logs/viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+configure_logging(log_file=log_file_name)
+
 
 @dataclass
 class ViewerConfig:
@@ -39,6 +43,7 @@ class ViewerConfig:
 
     def update_environment(self, containers: List[str]) -> None:
         """Update environment variables with viewer configuration."""
+        logger.info(f"Updating environment variables with viewer configuration: {self}")
         env_vars.update(
             DR_RUN_ID=self.run_id,
             DR_LOCAL_S3_MODEL_PREFIX=env_vars.DR_LOCAL_S3_MODEL_PREFIX,
@@ -78,6 +83,7 @@ def _check_pid_exists(pid: int) -> bool:
     try:
         env_vars.load_to_environment()
         env = get_subprocess_env(env_vars)
+        logger.info(f"Checking ENVS BEFORE CALL: {env}")
         subprocess.run(
             ["kill", "-0", str(pid)],
             check=True,
@@ -345,6 +351,7 @@ def start_stream_proxy(data: Dict[str, Any]) -> Dict[str, Any]:
     env_vars.update(DR_DYNAMIC_PROXY_PORT=config.proxy_port)
     env_vars.update(DR_VIEWER_CONTAINERS=json.dumps(containers))
     env_vars.load_to_environment()
+    logger.info(f"Environment variables updated: {env_vars}")
     
     proxy_script = Path(__file__).parent.parent / "viewers" / "stream_proxy.py"
     if not proxy_script.exists():
@@ -369,10 +376,14 @@ def start_stream_proxy(data: Dict[str, Any]) -> Dict[str, Any]:
     try:
         logger.info(f"Starting proxy server process: {' '.join(cmd)}")
         env = get_subprocess_env(env_vars)
+        env["DR_VIEWER_CONTAINERS"] = json.dumps(containers)
+        logger.info(f"Environment variables for proxy process: {env}") 
+        log_file = open(log_file_name, "w")
+ 
         process = subprocess.Popen(
             cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stdout=log_file,
+            stderr=log_file,
             text=True,
             env=env
         )
@@ -476,7 +487,10 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
     try:
         logger.info(f"Starting Streamlit viewer process: {' '.join(cmd)}")
         env = get_subprocess_env(env_vars)
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, text=True)
+        env["DR_VIEWER_CONTAINERS"] = json.dumps(containers)
+        logger.info(f"Environment variables for Streamlit process: {env}")
+        log_file = open(log_file_name, "w")
+        process = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, env=env, text=True)
 
         time.sleep(4)
         if process.poll() is None:
