@@ -56,7 +56,7 @@ class EnvVars:
 
     # Evaluation parameters
     DR_EVAL_NUMBER_OF_TRIALS: int = 3
-    DR_EVAL_IS_CONTINUOUS: bool = True
+    DR_EVAL_IS_CONTINUOUS: bool = False
     DR_EVAL_MAX_RESETS: int = 100
     DR_EVAL_OFF_TRACK_PENALTY: float = 3.0
     DR_EVAL_COLLISION_PENALTY: float = 5.0

@@ -85,8 +85,8 @@ class ContinuousActionSpace:
 class DiscreteActionSpace:
     """Defines the discrete action space."""
 
-    steering_angle: int
-    speed: int
+    steering_angle: float = -30.0
+    speed: float = 0.6
 
 
 @dataclass
