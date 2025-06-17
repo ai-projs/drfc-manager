@@ -19,11 +19,6 @@ logger = get_logger(__name__)
 log_file_name = f"/tmp/drfc_logs/streamlit_viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 configure_logging(log_file=log_file_name)
 
-logger.info("Current environment variables:")
-for key in sorted(os.environ.keys()):
-    if key.startswith('DR_'):
-        logger.info(f"{key}={os.environ[key]}")
-
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
 MODAL_WIDTH = 800
@@ -77,9 +72,7 @@ def load_containers_from_env() -> list:
         return []
         
     try:
-        # Remove any extra quotes that might be causing issues
         containers_str = containers_str.replace('\\"', '"')
-        # Parse the JSON string
         containers = json.loads(containers_str)
         logger.info("Successfully loaded containers: %s", containers)
         return containers

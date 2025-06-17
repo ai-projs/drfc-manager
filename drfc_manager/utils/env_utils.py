@@ -19,18 +19,13 @@ def get_subprocess_env(env_vars: EnvVars) -> Dict[str, str]:
         Dict[str, str]: A copy of the environment with updated variables
     """
     env = os.environ.copy()
-
-    env.update(
-        {
-            k: str(v)
-            for k, v in asdict(env_vars).items()
-            if not k.startswith("_") and v is not None
-        }
-    )
-
-    # logger.debug("Environment variables for subprocess:")
-    # for key in sorted(env.keys()):
-    #     if key.startswith('DR_'):
-    #         logger.debug(f"{key}={env[key]}")
-
+    
+    env_dict = {
+        k: str(v)
+        for k, v in asdict(env_vars).items()
+        if not k.startswith("_") and v is not None
+    }
+    
+    env.update(env_dict)
+    
     return env

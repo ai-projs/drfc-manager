@@ -43,7 +43,6 @@ class ViewerConfig:
 
     def update_environment(self, containers: List[str]) -> None:
         """Update environment variables with viewer configuration."""
-        logger.info(f"Updating environment variables with viewer configuration: {self}")
         env_vars.update(
             DR_RUN_ID=self.run_id,
             DR_LOCAL_S3_MODEL_PREFIX=env_vars.DR_LOCAL_S3_MODEL_PREFIX,
@@ -83,7 +82,6 @@ def _check_pid_exists(pid: int) -> bool:
     try:
         env_vars.load_to_environment()
         env = get_subprocess_env(env_vars)
-        logger.info(f"Checking ENVS BEFORE CALL: {env}")
         subprocess.run(
             ["kill", "-0", str(pid)],
             check=True,
@@ -488,7 +486,6 @@ def start_streamlit_viewer(data: Dict[str, Any]) -> Dict[str, Any]:
         logger.info(f"Starting Streamlit viewer process: {' '.join(cmd)}")
         env = get_subprocess_env(env_vars)
         env["DR_VIEWER_CONTAINERS"] = json.dumps(containers)
-        logger.info(f"Environment variables for Streamlit process: {env}")
         log_file = open(log_file_name, "w")
         process = subprocess.Popen(cmd, stdout=log_file, stderr=log_file, env=env, text=True)
 

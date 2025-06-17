@@ -8,7 +8,7 @@ from typing import List, Optional
 def configure_logging(
     log_level: str = "INFO",
     log_file: Optional[str] = None,
-    console_output: bool = True,
+    console_output: bool = False,
     json_output: bool = True,
 ) -> None:
     """
@@ -26,11 +26,18 @@ def configure_logging(
         raise ValueError(f"Invalid log level: {log_level}")
 
     # Configure standard library logging
-    logging.basicConfig(
-        format="%(message)s",
-        stream=sys.stdout,
-        level=numeric_level,
-    )
+    if console_output:
+        logging.basicConfig(
+            format="%(message)s",
+            stream=sys.stdout,
+            level=numeric_level,
+        )
+    else:
+        # Configure without stream to disable console output
+        logging.basicConfig(
+            format="%(message)s",
+            level=numeric_level,
+        )
 
     # Configure structlog processors
     processors: List[structlog.types.Processor] = [
