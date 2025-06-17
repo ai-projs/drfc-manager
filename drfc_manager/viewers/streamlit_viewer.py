@@ -1,20 +1,28 @@
+from datetime import datetime
 import streamlit as st
 import json
 import requests
-import logging
 import tempfile
 from typing import List, Dict, Tuple
 from pathlib import Path
 import streamlit.components.v1 as components
 import time
+import os
 
 from drfc_manager.types.env_vars import EnvVars
-from drfc_manager.utils.logging_config import get_logger
+from drfc_manager.utils.logging_config import get_logger, configure_logging
 
 env_vars = EnvVars()
-env_vars.load_to_environment()
 
 logger = get_logger(__name__)
+
+log_file_name = f"/tmp/drfc_logs/streamlit_viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+configure_logging(log_file=log_file_name)
+
+logger.info("Current environment variables:")
+for key in sorted(os.environ.keys()):
+    if key.startswith('DR_'):
+        logger.info(f"{key}={os.environ[key]}")
 
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
@@ -34,32 +42,8 @@ try:
 except Exception as e:
     st.error(f"Could not create user temp directory {user_tmp}: {e}")
 
-LOG_FILE = user_tmp / "streamlit_viewer.log"
-
 DEFAULT_CAMERA_ID = "kvs_stream"
 DEFAULT_CAMERA_TOPIC = "/racecar/deepracer/kvs_stream"
-
-log_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("streamlit_viewer")
-logger.setLevel(logging.INFO)
-if env_vars.DRFC_DEBUG:
-    logger.setLevel(logging.DEBUG)
-
-if not logger.handlers:
-    try:
-        file_handler = logging.FileHandler(LOG_FILE, mode="a")
-        file_handler.setFormatter(log_formatter)
-        logger.addHandler(file_handler)
-    except OSError as e:
-        st.error(f"Failed to open log file {LOG_FILE}: {e}. Logging to console only.")
-        logger.warning(
-            f"Could not open log file {LOG_FILE}. Logging to console only. Error: {e}"
-        )
-
-logger.propagate = False
-
 
 def init_session_state():
     defaults = {
@@ -84,16 +68,29 @@ def clear_modal_state():
 
 
 def load_containers_from_env() -> list:
-    containers_str = env_vars.DR_VIEWER_CONTAINERS
+    # First try direct environment variable
+    containers_str = os.environ.get("DR_VIEWER_CONTAINERS")
     logger.info("DEBUG: DR_VIEWER_CONTAINERS from os.environ: %s", containers_str)
-    if containers_str:
-        try:
-            return json.loads(containers_str)
-        except Exception as e:
-            logger.warning("Error parsing DR_VIEWER_CONTAINERS: %s", e)
-            st.write("DEBUG: Exception parsing containers_str:", str(e))
-            return []
-    return []
+    
+    if not containers_str:
+        logger.warning("DR_VIEWER_CONTAINERS not found in environment")
+        return []
+        
+    try:
+        # Remove any extra quotes that might be causing issues
+        containers_str = containers_str.replace('\\"', '"')
+        # Parse the JSON string
+        containers = json.loads(containers_str)
+        logger.info("Successfully loaded containers: %s", containers)
+        return containers
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse DR_VIEWER_CONTAINERS: %s", e)
+        st.error(f"Error parsing container list: {str(e)}")
+        return []
+    except Exception as e:
+        logger.error("Unexpected error loading containers: %s", e)
+        st.error(f"Unexpected error: {str(e)}")
+        return []
 
 
 def _check_proxy_health(proxy_url: str, proxy_status_placeholder) -> None:
@@ -350,11 +347,11 @@ proxy_port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
 proxy_url = f"http://localhost:{proxy_port}"
 
 cameras = [
-    {
-        "id": "kvs_stream",
-        "topic": "/racecar/deepracer/kvs_stream",
-        "description": "Car camera (Overlay)",
-    },
+    # {
+    #     "id": "kvs_stream",
+    #     "topic": "/racecar/deepracer/kvs_stream",
+    #     "description": "Car camera (Overlay)",
+    # },
     {
         "id": "camera",
         "topic": "/racecar/camera/zed/rgb/image_rect_color",
@@ -365,11 +362,11 @@ cameras = [
         "topic": "/racecar/main_camera/zed/rgb/image_rect_color",
         "description": "Follow camera",
     },
-    {
-        "id": "sub_camera",
-        "topic": "/sub_camera/zed/rgb/image_rect_color",
-        "description": "Top-down camera",
-    },
+    # {
+    #     "id": "sub_camera",
+    #     "topic": "/sub_camera/zed/rgb/image_rect_color",
+    #     "description": "Top-down camera",
+    # },
 ]
 camera_map = {cam["id"]: cam for cam in cameras}
 
@@ -467,7 +464,6 @@ with st.sidebar:
     st.caption(f"Run ID: {run_id}")
     st.caption(f"Model: {model_name}")
     st.caption(f"Containers: {len(containers)}")
-    st.caption(f"Logs: {LOG_FILE}")
 
 main_grid_width = max(1, st.session_state.width)
 main_grid_height = int(main_grid_width * (9 / 16))
