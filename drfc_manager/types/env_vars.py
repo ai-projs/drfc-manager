@@ -134,7 +134,7 @@ class EnvVars:
     DR_GUI_ENABLE: bool = False
     DR_KINESIS_STREAM_NAME: str = ""
     DR_CAMERA_MAIN_ENABLE: bool = True
-    DR_CAMERA_SUB_ENABLE: bool = False
+    DR_CAMERA_SUB_ENABLE: bool = True
     DR_CAMERA_KVS_ENABLE: bool = True
     DR_SIMAPP_SOURCE: str = "awsdeepracercommunity/deepracer-simapp"
     DR_SIMAPP_VERSION: str = "5.3.3-gpu"
@@ -205,10 +205,10 @@ class EnvVars:
             # Update with any provided values
             if args or kwargs:
                 self.update(*args, **kwargs)
-            print(
-                "After initialization, attributes:",
-                {k: v for k, v in self.__dict__.items() if not k.startswith("_")},
-            )
+            # print(
+            #     "After initialization, attributes:",
+            #     {k: v for k, v in self.__dict__.items() if not k.startswith("_")},
+            # )
 
     def update(self, *args, **kwargs):
         """Update environment variables with new values."""
@@ -310,7 +310,7 @@ class EnvVars:
         config["CAMERA_SUB_ENABLE"] = get_env("DR_CAMERA_SUB_ENABLE")
         config["REVERSE_DIR"] = str2bool(get_env("DR_EVAL_REVERSE_DIRECTION", False))
         config["ENABLE_EXTRA_KVS_OVERLAY"] = get_env(
-            "DR_ENABLE_EXTRA_KVS_OVERLAY", "False"
+            "DR_ENABLE_EXTRA_KVS_OVERLAY", "True"
         )
 
         race_type = config["RACE_TYPE"]
@@ -377,5 +377,5 @@ class EnvVars:
         return config
 
     def __repr__(self):
-        d = {k: v for k, v in self.__dict__.items() if not k.startswith("_")}
-        return f"EnvVars({d})"
+        from dataclasses import asdict
+        return f"EnvVars({asdict(self)})"
