@@ -20,7 +20,7 @@ class EnvVars:
 
     # DeepRacer configuration
     DR_RUN_ID: int = 0
-    DR_WORLD_NAME: str = "reInvent2019_wide_ccw"
+    DR_WORLD_NAME: str = "reInvent2019_track"
 
     # S3 configuration
     # AWS configuration
@@ -130,7 +130,7 @@ class EnvVars:
     DR_MINIO_IMAGE: str = "latest"
     DR_ANALYSIS_IMAGE: str = "cpu"
     DR_COACH_IMAGE: str = "5.2.1"
-    DR_WORKERS: int = 3
+    DR_WORKERS: int = 1
     DR_ROBOMAKER_MOUNT_LOGS: bool = False
     DR_CLOUD_WATCH_ENABLE: bool = False
     DR_CLOUD_WATCH_LOG_STREAM_PREFIX: str = ""
@@ -161,8 +161,9 @@ class EnvVars:
     DR_ROBOMAKER_GUI_PORT: int = 5900
     DR_SAGEMAKER_CUDA_DEVICES: str = "0"
     DR_ROBOMAKER_CUDA_DEVICES: str = "0"
+    DR_ROBOMAKER_EVAL_PORT: int = 8080
     DR_GAZEBO_ARGS: str = ""
-    DR_DR_ROBOMAKER_COMMAND: str = ""
+    ROBOMAKER_COMMAND: str = ""
 
     # --- Telemetry ---
     DR_TELEGRAF_HOST: str = "telegraf"
