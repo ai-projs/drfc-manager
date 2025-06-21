@@ -108,7 +108,7 @@ def evaluate_pipeline(
     env_vars.update(
         DR_CURRENT_PARAMS_FILE=env_vars.DR_LOCAL_S3_EVAL_PARAMS_FILE,
         STACK_NAME=f"deepracer-eval-{effective_run_id}",
-        DR_DR_ROBOMAKER_COMMAND="./run.sh run evaluation.launch"
+        ROBOMAKER_COMMAND="./run.sh run evaluation.launch"
     )
     env_vars.load_to_environment()
 

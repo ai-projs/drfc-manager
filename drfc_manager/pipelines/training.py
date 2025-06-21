@@ -69,11 +69,10 @@ def _check_critical_vars(env_vars: EnvVars):
     logger.info(f"DR_SIMAPP_VERSION: {env_vars.DR_SIMAPP_VERSION}")
     logger.info(f"REDIS_HOST: {env_vars.REDIS_HOST}")
     logger.info(f"REDIS_PORT: {env_vars.REDIS_PORT}")
-   
     
     
-
-
+    
+    
 def train_pipeline(
     model_name: str,
     hyperparameters: HyperParameters,

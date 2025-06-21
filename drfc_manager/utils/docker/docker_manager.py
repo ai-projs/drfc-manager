@@ -164,11 +164,11 @@ class DockerManager:
         logger.info("Updated environment variables with required values")
         
         if workers > 1:
-            self.env_vars.update(DR_DR_ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
+            self.env_vars.update(ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
             self.env_vars.load_to_environment()
             logger.info("Set RoboMaker command for distributed training")
         else:
-            self.env_vars.update(DR_DR_ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
+            self.env_vars.update(ROBOMAKER_COMMAND="/opt/simapp/run.sh run distributed_training.launch")
             self.env_vars.load_to_environment()
             logger.info("Set RoboMaker command for single worker")
         
