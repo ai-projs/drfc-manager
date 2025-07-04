@@ -20,26 +20,44 @@ def configure_logging(
         console_output: Whether to output logs to console
         json_output: Whether to use JSON format for logs
     """
-    # Convert string log level to logging constant
+
     numeric_level = getattr(logging, log_level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {log_level}")
 
-    # Configure standard library logging
-    if console_output:
-        logging.basicConfig(
-            format="%(message)s",
-            stream=sys.stdout,
-            level=numeric_level,
-        )
-    else:
-        # Configure without stream to disable console output
-        logging.basicConfig(
-            format="%(message)s",
-            level=numeric_level,
-        )
 
-    # Configure structlog processors
+    console_env = os.environ.get('DRFC_CONSOLE_LOGGING', 'false').lower() in ('1','true','yes')
+    emit_console = console_output or console_env
+
+
+    for h in logging.root.handlers[:]:
+        logging.root.removeHandler(h)
+
+
+    handlers = []
+    if emit_console:
+        stream_handler = logging.StreamHandler(sys.stdout)
+        stream_handler.setFormatter(logging.Formatter("%(message)s"))
+        handlers.append(stream_handler)
+
+    if log_file:
+        try:
+            os.makedirs(os.path.dirname(log_file), exist_ok=True)
+            file_handler = logging.FileHandler(log_file)
+            file_handler.setFormatter(logging.Formatter("%(message)s"))
+            handlers.append(file_handler)
+        except Exception:
+            if not emit_console:
+                fallback = logging.StreamHandler(sys.stdout)
+                fallback.setFormatter(logging.Formatter("%(message)s"))
+                handlers.append(fallback)
+
+    logging.basicConfig(
+        level=numeric_level,
+        format="%(message)s",
+        handlers=handlers,
+    )
+
     processors: List[structlog.types.Processor] = [
         structlog.stdlib.filter_by_level,
         structlog.processors.TimeStamper(fmt="iso"),
@@ -49,7 +67,6 @@ def configure_logging(
         structlog.processors.format_exc_info,
     ]  # type: ignore[list-item]
 
-    # Add JSON or console renderer
     if json_output:
         processors.append(structlog.processors.JSONRenderer())
     else:
@@ -63,13 +80,6 @@ def configure_logging(
         wrapper_class=structlog.stdlib.BoundLogger,
         cache_logger_on_first_use=True,
     )
-
-    # Add file handler if log_file is specified
-    if log_file:
-        os.makedirs(os.path.dirname(log_file), exist_ok=True)
-        file_handler = logging.FileHandler(log_file)
-        file_handler.setFormatter(logging.Formatter("%(message)s"))
-        logging.getLogger().addHandler(file_handler)
 
 
 def get_logger(name: str) -> structlog.BoundLogger:

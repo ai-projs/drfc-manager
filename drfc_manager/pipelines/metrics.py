@@ -115,6 +115,8 @@ def _execute_docker_compose(cmd: str, quiet: bool = True) -> None:
     """
     if not quiet:
         logger.info(f"Executing command: {cmd}")
+    if quiet:
+        cmd += " > /dev/null 2>&1"
     os.system(cmd)
 
 
