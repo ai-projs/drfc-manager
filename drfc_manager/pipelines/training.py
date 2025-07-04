@@ -14,7 +14,6 @@ from drfc_manager.transformers.training import (
     start_training,
     expose_config_envs_from_dataclass,
     check_training_logs_transformer,
-    upload_ip_config,
 )
 from drfc_manager.transformers.general import (
     check_if_model_exists_transformer,

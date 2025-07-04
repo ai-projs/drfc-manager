@@ -309,7 +309,7 @@ class DockerManager:
             
             # Execute the command
             env = get_subprocess_env(self.env_vars)
-            result = self._run_command(cmd, env=env)
+            result = self._run_command(cmd, env=env)  # noqa: F841
             
             # Wait for containers to be ready
             if not self._wait_for_containers_ready():
