@@ -3,6 +3,9 @@ import subprocess
 import time
 import json
 import socket
+import os
+import sys
+import signal
 from typing import Dict, Any, List, Optional, Tuple
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,20 +17,25 @@ from drfc_manager.utils.env_utils import get_subprocess_env
 env_vars = EnvVars()
 logger = get_logger(__name__)
 
-DEFAULT_VIEWER_PORT = env_vars.DR_WEBVIEWER_PORT
-DEFAULT_PROXY_PORT = env_vars.DR_DYNAMIC_PROXY_PORT
-DEFAULT_TOPIC = "/racecar/deepracer/kvs_stream"
-DEFAULT_WIDTH = env_vars.DR_VIEWER_WIDTH
-DEFAULT_HEIGHT = env_vars.DR_VIEWER_HEIGHT
-DEFAULT_QUALITY = env_vars.DR_VIEWER_QUALITY
+# Default configuration
+DEFAULT_TOPIC = "/racecar/main_camera/camera_link/camera_sensor/image"
+DEFAULT_WIDTH = 480
+DEFAULT_HEIGHT = 360
+DEFAULT_QUALITY = 75
+DEFAULT_VIEWER_PORT = 8100
+DEFAULT_PROXY_PORT = 8090
 DEFAULT_DELAY = 5
-MAX_PORT_ATTEMPTS = 20
+MAX_PORT_ATTEMPTS = 10
+
+# Process patterns for finding and killing processes
 STREAMLIT_PROCESS_PATTERN = "streamlit run drfc_manager.viewers.streamlit_viewer:app"
 UVICORN_PROCESS_PATTERN = "uvicorn drfc_manager.viewers.stream_proxy:app"
 PROXY_LOG_BASENAME = "stream_proxy"
 STREAMLIT_LOG_BASENAME = "streamlit_viewer"
 
-log_file_name = f"/tmp/drfc_logs/viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+# Use environment variable for log directory or fall back to user's home directory
+log_dir = os.environ.get('DRFC_LOG_DIR', os.path.expanduser('~/drfc_logs'))
+log_file_name = f"{log_dir}/viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 configure_logging(log_file=log_file_name)
 
 
@@ -265,7 +273,7 @@ def get_robomaker_containers(config: ViewerConfig) -> Dict[str, Any]:
                     "inspect",
                     task_id,
                     "--format",
-                    '{{range .NetworksAttachments}}{{if eq .Network.Spec.Name "sagemaker-local"}}{{range .Addresses}}{{split . "/" 0}}{{end}}{{end}}{{end}}',
+                    '{{range .NetworksAttachments}}{{if eq .Network.Spec.Name "sagemaker-local"}}{{range .Addresses}}{{index (split . "/") 0}}{{end}}{{end}}{{end}}',
                 ]
                 logger.debug(f"Running command: {' '.join(ip_cmd)}")
                 ip_result = subprocess.run(
@@ -610,9 +618,7 @@ def start_viewer_pipeline(
         proxy_port=proxy_port or DEFAULT_PROXY_PORT,
     )
 
-    # Optionally stop existing viewer processes
-    if update:
-        stop_viewer_process(None)
+    stop_viewer_process(None)
 
     # Build pipeline
     robomaker_containers = get_robomaker_containers

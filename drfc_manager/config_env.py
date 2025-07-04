@@ -69,18 +69,6 @@ class DockerConfig(BaseSettings):
     )
 
 
-class RedisConfig(BaseSettings):
-    """Redis configuration for DeepRacer Training."""
-
-    model_config = SettingsConfigDict(env_prefix="REDIS_")
-
-    host: str = Field(
-        default="redis",
-        description="Redis hostname (DNS service name in Docker network)",
-    )
-    port: int = Field(default=6379, description="Redis port")
-
-
 class AWSConfig(BaseSettings):
     """AWS Configuration for DeepRacer Training"""
 
@@ -90,7 +78,6 @@ class AWSConfig(BaseSettings):
 class AppConfig(BaseSettings):
     """Main Application Configuration"""
 
-    redis: RedisConfig = RedisConfig()
     minio: MinioConfig = MinioConfig()
     docker: DockerConfig = DockerConfig()
     aws: AWSConfig = AWSConfig()

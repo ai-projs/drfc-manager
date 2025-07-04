@@ -90,10 +90,59 @@ def evaluate_pipeline(
     logger.info(
         f"Starting evaluation pipeline for model: {model_name}, Run ID: {effective_run_id}"
     )
-    stop_evaluation_pipeline(run_id=effective_run_id)
+    
+    # Stop all existing DeepRacer containers to avoid port conflicts
+    logger.info("Stopping all existing DeepRacer containers to avoid port conflicts...")
+    try:
+        # Stop evaluation pipeline for this run ID
+        stop_evaluation_pipeline(run_id=effective_run_id)
+        
+        # Stop training pipeline if running
+        from drfc_manager.pipelines.training import stop_training_pipeline
+        stop_training_pipeline()
+        
+        # Additional cleanup: stop any remaining DeepRacer containers
+        import subprocess
+        import time
+        
+        # Stop all deepracer stacks
+        cleanup_cmds = [
+            ["docker", "stack", "rm", "deepracer-0"],
+            ["docker", "stack", "rm", "deepracer-eval-0"],
+            ["docker", "stack", "rm", "deepracer-1"],
+            ["docker", "stack", "rm", "deepracer-eval-1"],
+        ]
+        
+        for cmd in cleanup_cmds:
+            try:
+                subprocess.run(cmd, check=False, capture_output=True, timeout=10)
+            except Exception as e:
+                logger.debug(f"Cleanup command failed (expected): {e}")
+        
+        # Stop all deepracer compose projects
+        compose_cleanup_cmds = [
+            ["docker", "compose", "-p", "deepracer-0", "down", "--volumes", "--remove-orphans"],
+            ["docker", "compose", "-p", "deepracer-eval-0", "down", "--volumes", "--remove-orphans"],
+            ["docker", "compose", "-p", "deepracer-1", "down", "--volumes", "--remove-orphans"],
+            ["docker", "compose", "-p", "deepracer-eval-1", "down", "--volumes", "--remove-orphans"],
+        ]
+        
+        for cmd in compose_cleanup_cmds:
+            try:
+                subprocess.run(cmd, check=False, capture_output=True, timeout=10)
+            except Exception as e:
+                logger.debug(f"Compose cleanup command failed (expected): {e}")
+        
+        # Wait a moment for containers to stop
+        time.sleep(5)
+        
+        logger.info("DeepRacer container cleanup completed")
+        
+    except Exception as e:
+        logger.warning(f"Cleanup warning (continuing): {e}")
 
     base_webviewer_port = env_vars.DR_WEBVIEWER_PORT
-    base_robomaker_port = env_vars.DR_ROBOMAKER_TRAIN_PORT
+    base_robomaker_port = env_vars.DR_ROBOMAKER_EVAL_PORT
     base_gui_port = env_vars.DR_ROBOMAKER_GUI_PORT
 
     port_offset = effective_run_id * 10

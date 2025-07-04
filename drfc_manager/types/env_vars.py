@@ -14,10 +14,6 @@ from drfc_manager.utils.str_to_bool import str2bool
 class EnvVars:
     _instance = None
 
-    # Redis configuration
-    REDIS_HOST: str = "redis"
-    REDIS_PORT: int = 6379
-
     # DeepRacer configuration
     DR_RUN_ID: int = 0
     DR_WORLD_NAME: str = "reInvent2019_track"
@@ -134,7 +130,7 @@ class EnvVars:
     DR_ROBOMAKER_MOUNT_LOGS: bool = False
     DR_CLOUD_WATCH_ENABLE: bool = False
     DR_CLOUD_WATCH_LOG_STREAM_PREFIX: str = ""
-    DR_DOCKER_STYLE: str = "compose"
+    DR_DOCKER_STYLE: str = "swarm"
     DR_HOST_X: bool = False
     DR_DISPLAY: Optional[str] = None
     DR_XAUTHORITY: Optional[str] = None

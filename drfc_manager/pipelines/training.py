@@ -53,8 +53,7 @@ def sleep_15_seconds(_):
 def _check_critical_vars(env_vars: EnvVars):
     critical_vars = {
         'DR_SIMAPP_SOURCE': env_vars.DR_SIMAPP_SOURCE,
-        'DR_SIMAPP_VERSION': env_vars.DR_SIMAPP_VERSION,
-        'REDIS_HOST': env_vars.REDIS_HOST
+        'DR_SIMAPP_VERSION': env_vars.DR_SIMAPP_VERSION
     }
     
     missing_vars = [var for var, value in critical_vars.items() if not value]
@@ -67,8 +66,6 @@ def _check_critical_vars(env_vars: EnvVars):
     logger.info("Environment variables loaded:")
     logger.info(f"DR_SIMAPP_SOURCE: {env_vars.DR_SIMAPP_SOURCE}")
     logger.info(f"DR_SIMAPP_VERSION: {env_vars.DR_SIMAPP_VERSION}")
-    logger.info(f"REDIS_HOST: {env_vars.REDIS_HOST}")
-    logger.info(f"REDIS_PORT: {env_vars.REDIS_PORT}")
     
     
     
@@ -157,7 +154,7 @@ def train_pipeline(
                 data=None,
                 message="Upload successfully the RoboMaker training configurations",
             )
-            >> upload_ip_config(model_name=model_name)
+            # >> upload_ip_config(model_name=model_name)
             >> expose_config_envs_from_dataclass(
                 model_name=model_name, bucket_name=_bucket_name
             )
@@ -184,22 +181,22 @@ def stop_training_pipeline():
     Uses the run_id from the current settings (or DR_RUN_ID env var)
     to identify the correct Docker Compose project.
     """
-    logger.info("Attempting to stop training stack...")
+    logger.info('Stopping training stack via drfc-manager (matching dr-stop-training)...')
     try:
-        current_run_id = env_vars.DR_RUN_ID
-        logger.info(f"Targeting Run ID: {current_run_id}")
-
-        docker_manager = DockerManager(settings)
-
-        docker_manager.cleanup_previous_run(prune_system=False)
-
-        logger.info("Training stack stopped successfully.")
+        dm = DockerManager(settings)
+        # Reconstruct compose files used at startup
+        compose_paths, _ = dm._prepare_compose_files(dm.env_vars.DR_WORKERS)
+        sep = settings.docker.dr_docker_file_sep
+        compose_str = sep.join(compose_paths)
+        if dm.env_vars.DR_DOCKER_STYLE.lower() == 'swarm':
+            dm.remove_stack(dm.project_name)
+        else:
+            dm.compose_down(dm.project_name, compose_str, remove_volumes=False)
+        logger.info('Training stack stopped successfully.')
     except DockerError as e:
-        logger.error(f"Error stopping training stack: {e}")
+        logger.error(f'Error stopping training stack: {e}')
     except Exception as e:
-        logger.error(
-            f"An unexpected error occurred while stopping training: {type(e).__name__} - {e}"
-        )
+        logger.error(f'Unexpected error stopping training stack: {type(e).__name__}: {e}')
 
 
 def clone_pipeline(

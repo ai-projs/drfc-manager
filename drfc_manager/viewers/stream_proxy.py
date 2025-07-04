@@ -17,7 +17,9 @@ from drfc_manager.types.constants import (
 env_vars = EnvVars()
 logger = get_logger(__name__)
 
-log_file_name = f"/tmp/drfc_logs/proxy_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+# Use environment variable for log directory or fall back to user's home directory
+log_dir = os.environ.get('DRFC_LOG_DIR', os.path.expanduser('~/drfc_logs'))
+log_file_name = f"{log_dir}/proxy_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 configure_logging(log_file=log_file_name)
 
 env_vars = EnvVars()

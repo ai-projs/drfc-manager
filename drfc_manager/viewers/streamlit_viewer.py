@@ -16,7 +16,9 @@ env_vars = EnvVars()
 
 logger = get_logger(__name__)
 
-log_file_name = f"/tmp/drfc_logs/streamlit_viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+# Use environment variable for log directory or fall back to user's home directory
+log_dir = os.environ.get('DRFC_LOG_DIR', os.path.expanduser('~/drfc_logs'))
+log_file_name = f"{log_dir}/streamlit_viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
 configure_logging(log_file=log_file_name)
 
 MAX_COLUMNS = 3
@@ -300,13 +302,12 @@ def _determine_streams_to_display(
         return []
 
     if selected_container == "All" and selected_camera == "All":
-        default_cam_id = cameras[0].get("id", DEFAULT_CAMERA_ID)
-        limit = MAX_COLUMNS * 2
-        streams_to_show = [(c, default_cam_id) for c in containers[:limit]]
-        if len(containers) > limit:
-            st.info(
-                f"Showing default '{camera_map.get(default_cam_id, {}).get('description', default_cam_id)}' stream for the first {limit} containers. Select a specific worker or camera to see more."
-            )
+        # Show all camera streams for the first worker only
+        first_container = containers[0]
+        streams_to_show = [(first_container, cam["id"]) for cam in cameras]
+        st.info(
+            f"Showing all camera streams for worker '{first_container}'. Select a specific worker to view other workers."
+        )
     elif selected_container == "All":
         if selected_camera in camera_map:
             streams_to_show = [(c, selected_camera) for c in containers]
@@ -340,11 +341,11 @@ proxy_port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
 proxy_url = f"http://localhost:{proxy_port}"
 
 cameras = [
-    # {
-    #     "id": "kvs_stream",
-    #     "topic": "/racecar/deepracer/kvs_stream",
-    #     "description": "Car camera (Overlay)",
-    # },
+    {
+        "id": "kvs_stream",
+        "topic": "/racecar/deepracer/kvs_stream",
+        "description": "Car camera (Overlay)",
+    },
     {
         "id": "camera",
         "topic": "/racecar/camera/zed/rgb/image_rect_color",
@@ -355,11 +356,11 @@ cameras = [
         "topic": "/racecar/main_camera/zed/rgb/image_rect_color",
         "description": "Follow camera",
     },
-    # {
-    #     "id": "sub_camera",
-    #     "topic": "/sub_camera/zed/rgb/image_rect_color",
-    #     "description": "Top-down camera",
-    # },
+    {
+        "id": "sub_camera",
+        "topic": "/sub_camera/zed/rgb/image_rect_color",
+        "description": "Top-down camera",
+    },
 ]
 camera_map = {cam["id"]: cam for cam in cameras}
 
