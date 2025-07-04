@@ -2,7 +2,7 @@ import os
 import sys
 import logging
 import structlog
-from typing import List, Optional
+from typing import List, Optional, Union
 
 
 def configure_logging(
@@ -34,7 +34,7 @@ def configure_logging(
         logging.root.removeHandler(h)
 
 
-    handlers = []
+    handlers: list[Union[logging.StreamHandler, logging.FileHandler]] = []
     if emit_console:
         stream_handler = logging.StreamHandler(sys.stdout)
         stream_handler.setFormatter(logging.Formatter("%(message)s"))
