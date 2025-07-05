@@ -1,10 +1,12 @@
-# src/models/data_extraction.py
 from typing import Optional, Tuple, Callable, Dict, Any
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.models.model_operations import ModelData
 from drfc_manager.utils.minio.storage_client import StorageClient
 from drfc_manager.utils.logging import logger
+
+env_vars = EnvVars()
 
 
 def extract_model_data(
@@ -45,7 +47,7 @@ def extract_hyperparameters(
 
     try:
         hyperparams_json = storage_client.download_json(
-            f"{storage_client.config.custom_files_folder}/hyperparameters.json"
+            f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/hyperparameters.json"
         )
         return HyperParameters(**hyperparams_json)
     except Exception:
@@ -63,7 +65,7 @@ def extract_metadata(
 
     try:
         metadata_json = storage_client.download_json(
-            f"{storage_client.config.custom_files_folder}/model_metadata.json"
+            f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/model_metadata.json"
         )
         return ModelMetadata(**metadata_json)
     except Exception:

@@ -1,6 +1,5 @@
 from typing import Callable, Dict, Union, Optional
 import os
-import json
 
 from gloe import transformer, partial_transformer
 from minio import Minio as MinioClient
@@ -23,6 +22,7 @@ from drfc_manager.utils.logging import logger
 
 from drfc_manager.config_env import settings
 
+env_vars = EnvVars()
 sagemaker_temp_dir = os.path.expanduser("~/sagemaker_temp")
 work_directory = os.path.expanduser("~/dr_work")
 
@@ -34,6 +34,7 @@ docker_manager = DockerManager(settings)
 def create_sagemaker_temp_files(_) -> None:
     try:
         create_folder(sagemaker_temp_dir, 0o770)
+        create_folder('/tmp/sagemaker', 0o770)
     except PermissionError as e:
         raise BaseExceptionTransformers(
             f"Permission denied creating {sagemaker_temp_dir}", e
@@ -78,7 +79,7 @@ def upload_reward_function(
     object_name: Optional[str] = None,
 ):
     if object_name is None:
-        object_name = f"{storage_manager.config.custom_files_folder}/reward_function.py"
+        object_name = f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/reward_function.py"
     try:
         if isinstance(reward_function, str):
             data_bytes = reward_function.encode("utf-8")
@@ -107,11 +108,11 @@ def upload_training_params_file(_, model_name: str):
     local_yaml_path = None
     try:
         logger.info("Generating local training_params.yaml...")
-        relevant_envs = EnvVars(
+        env_vars.update(
             DR_LOCAL_S3_MODEL_PREFIX=model_name,
             DR_LOCAL_S3_BUCKET=settings.minio.bucket_name,
         )
-        relevant_envs.load_to_environment()
+        env_vars.load_to_environment()
 
         yaml_key, local_yaml_path = writing_on_temp_training_yml(model_name)
         logger.info(f"Generated {local_yaml_path}, uploading to {yaml_key}")
@@ -140,6 +141,22 @@ def upload_training_params_file(_, model_name: str):
 @transformer
 def start_training(_):
     try:
+        env_vars.load_to_environment()
+        
+        critical_vars = {
+            'DR_SIMAPP_SOURCE': env_vars.DR_SIMAPP_SOURCE,
+            'DR_SIMAPP_VERSION': env_vars.DR_SIMAPP_VERSION
+        }
+        
+        missing_vars = [var for var, value in critical_vars.items() if not value]
+        if missing_vars:
+            logger.error(f"Missing critical environment variables: {', '.join(missing_vars)}")
+            logger.error(f"Current environment state: {critical_vars}")
+            raise DockerError(f"Missing critical environment variables: {', '.join(missing_vars)}")
+            
+        logger.info("Environment variables loaded successfully")
+        logger.info(f"SimApp configuration: {env_vars.DR_SIMAPP_SOURCE}:{env_vars.DR_SIMAPP_VERSION}")
+        
         logger.info("Attempting to start DeepRacer Docker stack...")
         docker_manager.cleanup_previous_run(prune_system=True)
         docker_manager.start_deepracer_stack()
@@ -167,7 +184,6 @@ def stop_training_transformer(_):
 @transformer
 def check_training_logs_transformer(_):
     try:
-        docker_manager.check_logs("redis")
         docker_manager.check_logs("rl_coach")
         docker_manager.check_logs("robomaker")
         logger.info("Log check complete.")
@@ -185,12 +201,13 @@ def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> N
     Container environment variables are set separately by DockerManager.
     """
     try:
-        env_loader = EnvVars(
+        # Get singleton instance and update with model-specific values
+        env_vars.update(
             DR_LOCAL_S3_MODEL_PREFIX=model_name,
             DR_LOCAL_S3_BUCKET=bucket_name,
-            DR_AWS_APP_REGION=os.getenv("DR_AWS_APP_REGION", "us-east-1"),
+            DR_AWS_APP_REGION=env_vars.DR_AWS_APP_REGION,
         )
-        env_loader.load_to_environment()
+        env_vars.load_to_environment()
         logger.info(
             f"Loaded DR_* vars for model '{model_name}' into current process environment."
         )
@@ -201,21 +218,8 @@ def expose_config_envs_from_dataclass(_, model_name: str, bucket_name: str) -> N
 @partial_transformer
 def upload_ip_config(_, model_name: str):
     """Upload Redis IP config (ip.json and done flag) to S3"""
-    # Determine Redis host (Docker DNS name)
-    redis_host = os.environ.get("REDIS_HOST", settings.redis.host)
-    # Prepare IP config
-    ip_config = {"IP": redis_host}
-    object_name = f"{model_name}/ip/ip.json"
-    data_bytes = json.dumps(ip_config).encode("utf-8")
-    # Upload ip.json
-    storage_manager._upload_data(
-        object_name, data_bytes, len(data_bytes), "application/json"
-    )
-    # Upload done flag
-    done_key = f"{model_name}/ip/done"
-    storage_manager._upload_data(
-        done_key, b"done", len(b"done"), "application/octet-stream"
-    )
-    logger.info(
-        f"Uploaded Redis IP config to {object_name} and done flag to {done_key}"
-    )
+    # The SageMaker container will upload its own IP address when it starts
+    # This function is called by the DRFC manager before starting containers
+    # We need to wait for the SageMaker container to upload its IP
+    logger.info("Skipping Redis IP config upload - SageMaker container will upload its own IP")
+    pass

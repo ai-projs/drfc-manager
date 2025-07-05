@@ -1,7 +1,7 @@
 # Server configuration
 DEFAULT_PROXY_PORT = 8090
 DEFAULT_TARGET_HOST = "localhost"
-DEFAULT_TARGET_PORT = 9080
+DEFAULT_TARGET_PORT = 8080
 
 # Stream configuration
 DEFAULT_QUALITY = 75

@@ -1,49 +1,46 @@
+from datetime import datetime
 import streamlit as st
-import os
 import json
 import requests
-import logging
 import tempfile
 from typing import List, Dict, Tuple
 from pathlib import Path
 import streamlit.components.v1 as components
 import time
+import os
+
+from drfc_manager.types.env_vars import EnvVars
+from drfc_manager.utils.logging_config import get_logger, configure_logging
+
+env_vars = EnvVars()
+
+logger = get_logger(__name__)
+
+# Use environment variable for log directory or fall back to user's home directory
+log_dir = os.environ.get('DRFC_LOG_DIR', os.path.expanduser('~/drfc_logs'))
+log_file_name = f"{log_dir}/streamlit_viewer_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+configure_logging(log_file=log_file_name)
 
 MAX_COLUMNS = 3
 PROXY_TIMEOUT = 5
 MODAL_WIDTH = 800
-user_tmp = Path(tempfile.gettempdir()) / os.environ.get("USER", "unknown_user")
+user_tmp = Path(tempfile.gettempdir()) / env_vars.USER
+
+run_id = env_vars.DR_RUN_ID
+model_name = env_vars.DR_LOCAL_S3_MODEL_PREFIX
+
+st.set_page_config(
+    page_title=f"DeepRacer Viewer - Run {run_id}",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 try:
     user_tmp.mkdir(parents=True, exist_ok=True)
 except Exception as e:
     st.error(f"Could not create user temp directory {user_tmp}: {e}")
 
-LOG_FILE = user_tmp / "streamlit_viewer.log"
-
 DEFAULT_CAMERA_ID = "kvs_stream"
 DEFAULT_CAMERA_TOPIC = "/racecar/deepracer/kvs_stream"
-
-log_formatter = logging.Formatter(
-    "%(asctime)s - %(name)s:%(lineno)d - %(levelname)s - %(message)s"
-)
-logger = logging.getLogger("streamlit_viewer")
-logger.setLevel(logging.INFO)
-if os.environ.get("DRFC_DEBUG", "false").lower() == "true":
-    logger.setLevel(logging.DEBUG)
-
-if not logger.handlers:
-    try:
-        file_handler = logging.FileHandler(LOG_FILE, mode="a")
-        file_handler.setFormatter(log_formatter)
-        logger.addHandler(file_handler)
-    except OSError as e:
-        st.error(f"Failed to open log file {LOG_FILE}: {e}. Logging to console only.")
-        logger.warning(
-            f"Could not open log file {LOG_FILE}. Logging to console only. Error: {e}"
-        )
-
-logger.propagate = False
-
 
 def init_session_state():
     defaults = {
@@ -54,8 +51,8 @@ def init_session_state():
         "proxy_error_message": None,
         "selected_container": "All",
         "selected_camera": "All",
-        "quality": int(os.environ.get("DR_VIEWER_QUALITY", "75")),
-        "width": int(os.environ.get("DR_VIEWER_WIDTH", "480")),
+        "quality": env_vars.DR_VIEWER_QUALITY,
+        "width": env_vars.DR_VIEWER_WIDTH,
     }
     for key, default_value in defaults.items():
         if key not in st.session_state:
@@ -67,28 +64,27 @@ def clear_modal_state():
     st.session_state.expanded_stream = None
 
 
-def load_containers_from_env() -> List[str]:
-    containers_str = os.environ.get("DR_VIEWER_CONTAINERS", "[]")
+def load_containers_from_env() -> list:
+    # First try direct environment variable
+    containers_str = os.environ.get("DR_VIEWER_CONTAINERS")
+    logger.info("DEBUG: DR_VIEWER_CONTAINERS from os.environ: %s", containers_str)
+    
+    if not containers_str:
+        logger.warning("DR_VIEWER_CONTAINERS not found in environment")
+        return []
+        
     try:
-        parsed_containers = json.loads(containers_str)
-        if isinstance(parsed_containers, list) and all(
-            isinstance(item, str) for item in parsed_containers
-        ):
-            logger.info(f"Loaded {len(parsed_containers)} containers from environment.")
-            logger.debug(f"Containers: {parsed_containers}")
-            return parsed_containers
-        else:
-            logger.warning(
-                f"DR_VIEWER_CONTAINERS was not a list of strings: '{containers_str}'."
-            )
-            return []
-    except json.JSONDecodeError:
-        logger.error(f"Failed to parse DR_VIEWER_CONTAINERS JSON: '{containers_str}'.")
+        containers_str = containers_str.replace('\\"', '"')
+        containers = json.loads(containers_str)
+        logger.info("Successfully loaded containers: %s", containers)
+        return containers
+    except json.JSONDecodeError as e:
+        logger.error("Failed to parse DR_VIEWER_CONTAINERS: %s", e)
+        st.error(f"Error parsing container list: {str(e)}")
         return []
     except Exception as e:
-        logger.error(
-            f"Unexpected error loading DR_VIEWER_CONTAINERS: {e}", exc_info=True
-        )
+        logger.error("Unexpected error loading containers: %s", e)
+        st.error(f"Unexpected error: {str(e)}")
         return []
 
 
@@ -306,13 +302,12 @@ def _determine_streams_to_display(
         return []
 
     if selected_container == "All" and selected_camera == "All":
-        default_cam_id = cameras[0].get("id", DEFAULT_CAMERA_ID)
-        limit = MAX_COLUMNS * 2
-        streams_to_show = [(c, default_cam_id) for c in containers[:limit]]
-        if len(containers) > limit:
-            st.info(
-                f"Showing default '{camera_map.get(default_cam_id, {}).get('description', default_cam_id)}' stream for the first {limit} containers. Select a specific worker or camera to see more."
-            )
+        # Show all camera streams for the first worker only
+        first_container = containers[0]
+        streams_to_show = [(first_container, cam["id"]) for cam in cameras]
+        st.info(
+            f"Showing all camera streams for worker '{first_container}'. Select a specific worker to view other workers."
+        )
     elif selected_container == "All":
         if selected_camera in camera_map:
             streams_to_show = [(c, selected_camera) for c in containers]
@@ -336,17 +331,13 @@ def _determine_streams_to_display(
     )
     return streams_to_show
 
-
 init_session_state()
 
-run_id = int(os.environ.get("DR_RUN_ID", "0"))
-model_name = os.environ.get("DR_LOCAL_S3_MODEL_PREFIX", "unknown-model")
-
-if not st.session_state.containers:
+if "containers" not in st.session_state or not st.session_state.containers:
     st.session_state.containers = load_containers_from_env()
 containers = st.session_state.containers
 
-proxy_port = int(os.environ.get("DR_PROXY_PORT", "8090"))
+proxy_port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
 proxy_url = f"http://localhost:{proxy_port}"
 
 cameras = [
@@ -372,12 +363,6 @@ cameras = [
     },
 ]
 camera_map = {cam["id"]: cam for cam in cameras}
-
-st.set_page_config(
-    page_title=f"DeepRacer Viewer - Run {run_id}",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 st.title("🏎️ DeepRacer Run Viewer")
 
@@ -473,7 +458,6 @@ with st.sidebar:
     st.caption(f"Run ID: {run_id}")
     st.caption(f"Model: {model_name}")
     st.caption(f"Containers: {len(containers)}")
-    st.caption(f"Logs: {LOG_FILE}")
 
 main_grid_width = max(1, st.session_state.width)
 main_grid_height = int(main_grid_width * (9 / 16))

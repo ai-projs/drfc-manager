@@ -2,14 +2,33 @@ import os
 from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any
 import datetime
+from drfc_manager.types.constants import (
+    DEFAULT_TARGET_HOST,
+    DEFAULT_TARGET_PORT,
+    DEFAULT_TOPIC,
+)
 from drfc_manager.utils.str_to_bool import str2bool
 
 
 @dataclass
 class EnvVars:
-    # ------------------ run.env ------------------
+    _instance = None
+
+    # DeepRacer configuration
     DR_RUN_ID: int = 0
-    DR_WORLD_NAME: str = "reInvent2019_wide_ccw"
+    DR_WORLD_NAME: str = "reInvent2019_track"
+
+    # S3 configuration
+    # AWS configuration
+    DR_AWS_APP_REGION: str = "us-east-1"
+
+    # MinIO configuration
+    DR_MINIO_HOST: str = "minio"
+    DR_MINIO_HOST_API: str = "localhost"
+    DR_MINIO_PORT: int = 9000
+    MINIO_BUCKET_NAME: str = "tcc-experiments"
+
+    # ------------------ run.env ------------------
     DR_RACE_TYPE: str = "TIME_TRIAL"
     DR_CAR_NAME: str = "FastCar"
     DR_CAR_BODY_SHELL_TYPE: str = "deepracer"
@@ -22,7 +41,7 @@ class EnvVars:
 
     # Evaluation parameters
     DR_EVAL_NUMBER_OF_TRIALS: int = 3
-    DR_EVAL_IS_CONTINUOUS: bool = True
+    DR_EVAL_IS_CONTINUOUS: bool = False
     DR_EVAL_MAX_RESETS: int = 100
     DR_EVAL_OFF_TRACK_PENALTY: float = 3.0
     DR_EVAL_COLLISION_PENALTY: float = 5.0
@@ -49,23 +68,25 @@ class EnvVars:
     DR_TRAIN_MULTI_CONFIG: bool = False
     DR_TRAIN_MIN_EVAL_TRIALS: int = 5
     DR_TRAIN_BEST_MODEL_METRIC: str = "progress"
-    DR_TRAIN_MAX_STEPS_PER_ITERATION: Optional[int] = None
-    DR_TRAIN_RTF: Optional[int] = None
+    DR_TRAIN_MAX_STEPS_PER_ITERATION: int = 10000
+    DR_TRAIN_RTF: float = 1.0
 
     # Model paths and S3 keys
     DR_LOCAL_S3_MODEL_PREFIX: str = "rl-deepracer-jv"
     DR_LOCAL_S3_PRETRAINED: bool = False
     DR_LOCAL_S3_PRETRAINED_PREFIX: str = "explr-zg-offt-speed-borders-1"
-    DR_LOCAL_S3_PRETRAINED_CHECKPOINT: str = "best"
+    DR_LOCAL_S3_PRETRAINED_CHECKPOINT: str = "last"
     DR_LOCAL_S3_CUSTOM_FILES_PREFIX: str = "custom_files"
     DR_LOCAL_S3_TRAINING_PARAMS_FILE: str = "training_params.yaml"
     DR_LOCAL_S3_EVAL_PARAMS_FILE: str = "evaluation_params.yaml"
+    DR_CURRENT_PARAMS_FILE: str = "eval_params.yaml"
     DR_LOCAL_S3_MODEL_METADATA_KEY: str = "custom_files/model_metadata.json"
     DR_LOCAL_S3_HYPERPARAMETERS_KEY: str = "custom_files/hyperparameters.json"
     DR_LOCAL_S3_REWARD_KEY: str = "custom_files/reward_function.py"
-    DR_LOCAL_S3_METRICS_PREFIX: str = "rl-deepracer-sagemaker/metrics"
-    DR_UPLOAD_S3_PREFIX: str = "rl-deepracer-sagemaker"
-    DR_MINIO_URL: str = "http://minio:9000"
+    DR_LOCAL_S3_METRICS_PREFIX: str = f"{DR_LOCAL_S3_MODEL_PREFIX}/metrics"
+    DR_UPLOAD_S3_PREFIX: str = f"{DR_LOCAL_S3_MODEL_PREFIX}"
+    DR_MINIO_URL: str = f"http://{DR_MINIO_HOST}:{DR_MINIO_PORT}"
+    DR_MINIO_URL_API: str = f"http://{DR_MINIO_HOST_API}:{DR_MINIO_PORT}"
 
     # Obstacle avoidance
     DR_OA_NUMBER_OF_OBSTACLES: int = 6
@@ -88,7 +109,6 @@ class EnvVars:
 
     # ------------------ system.env ------------------
     DR_CLOUD: str = "local"
-    DR_AWS_APP_REGION: str = "us-east-1"
     DR_UPLOAD_S3_PROFILE: str = "default"
     DR_UPLOAD_S3_BUCKET: str = "deepracer-models-cloud-aws"
     DR_UPLOAD_S3_ROLE: str = "to-be-defined"
@@ -99,7 +119,7 @@ class EnvVars:
     DR_GUI_ENABLE: bool = False
     DR_KINESIS_STREAM_NAME: str = ""
     DR_CAMERA_MAIN_ENABLE: bool = True
-    DR_CAMERA_SUB_ENABLE: bool = False
+    DR_CAMERA_SUB_ENABLE: bool = True
     DR_CAMERA_KVS_ENABLE: bool = True
     DR_SIMAPP_SOURCE: str = "awsdeepracercommunity/deepracer-simapp"
     DR_SIMAPP_VERSION: str = "5.3.3-gpu"
@@ -110,16 +130,36 @@ class EnvVars:
     DR_ROBOMAKER_MOUNT_LOGS: bool = False
     DR_CLOUD_WATCH_ENABLE: bool = False
     DR_CLOUD_WATCH_LOG_STREAM_PREFIX: str = ""
-    DR_DOCKER_STYLE: str = "compose"
+    DR_DOCKER_STYLE: str = "swarm"
     DR_HOST_X: bool = False
+    DR_DISPLAY: Optional[str] = None
+    DR_XAUTHORITY: Optional[str] = None
+
+    DR_DIR: str = "/tmp/drfc"
+
+    # --- Debugging ---
+    DRFC_CONSOLE_LOGGING: bool = False
+    DRFC_DEBUG: bool = False
+    USER: str = os.environ.get("USER", "unknown_user")
+
+    # --- Stream Proxy ---
+    DR_TARGET_HOST: str = DEFAULT_TARGET_HOST
+    DR_TARGET_PORT: int = DEFAULT_TARGET_PORT
+    DR_VIEWER_CONTAINERS: str = ""
+    DR_VIEWER_QUALITY: int = 75
+    DR_VIEWER_WIDTH: int = 480
+    DR_VIEWER_HEIGHT: int = 360
+    DR_VIEWER_TOPIC: str = DEFAULT_TOPIC
 
     # --- Resource Allocation & Ports ---
     DR_WEBVIEWER_PORT: int = 8100
-    DR_ROBOMAKER_TRAIN_PORT: str = "8080"
-    DR_ROBOMAKER_GUI_PORT: str = "5900"
-    DR_SAGEMAKER_CUDA_DEVICES: str = ""
-    DR_ROBOMAKER_CUDA_DEVICES: str = ""
+    DR_ROBOMAKER_TRAIN_PORT: int = 8080
+    DR_ROBOMAKER_GUI_PORT: int = 5900
+    DR_SAGEMAKER_CUDA_DEVICES: str = "0"
+    DR_ROBOMAKER_CUDA_DEVICES: str = "0"
+    DR_ROBOMAKER_EVAL_PORT: int = 8080
     DR_GAZEBO_ARGS: str = ""
+    ROBOMAKER_COMMAND: str = ""
 
     # --- Telemetry ---
     DR_TELEGRAF_HOST: str = "telegraf"
@@ -130,6 +170,38 @@ class EnvVars:
     # Prefix for simulation trace storage
     DR_SIMTRACE_S3_PREFIX: str = ""
 
+    # S3 authentication mode
+    DR_LOCAL_S3_AUTH_MODE: str = "profile"
+
+    # Dynamic proxy port
+    DR_DYNAMIC_PROXY_PORT: int = 8090
+
+    # DEEPRACER_JOB_TYPE_ENV: str = "TRAINING"
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def __init__(self, *args, **kwargs):
+        # Only initialize if this is the first time
+        if not hasattr(self, "_initialized"):
+            print("Initializing EnvVars for the first time")
+            self._initialized = True
+            # Update with any provided values
+            if args or kwargs:
+                self.update(*args, **kwargs)
+            # print(
+            #     "After initialization, attributes:",
+            #     {k: v for k, v in self.__dict__.items() if not k.startswith("_")},
+            # )
+
+    def update(self, *args, **kwargs):
+        """Update environment variables with new values."""
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+
     def export_as_env_string(self) -> str:
         """Returns a single string with key=value pairs for all environment variables."""
         env_dict = {k: v for k, v in asdict(self).items() if v is not None}
@@ -139,9 +211,13 @@ class EnvVars:
         """
         Loads all of the environment variables from this dataclass into os.environ.
         Only variables with a non-None value are loaded.
+        Also sets non-DR_* names expected by containers.
         """
         env_vars = asdict(self)
         for key, value in env_vars.items():
+            # Skip private attributes
+            if key.startswith("_"):
+                continue
             # Convert boolean values to lowercase strings to be consistent with shell expectations
             if isinstance(value, bool):
                 os.environ[key] = str(value).lower()
@@ -151,7 +227,7 @@ class EnvVars:
     def generate_evaluation_config(self) -> Dict[str, Any]:
         """
         Generates the evaluation configuration dictionary by reading environment variables
-        (either from os.environ if loaded, or from this class's attributes).
+        from this class's attributes.
         """
         eval_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         config: Dict[str, Any] = {}
@@ -170,9 +246,9 @@ class EnvVars:
         config["MP4_S3_BUCKET"] = []
         config["MP4_S3_OBJECT_PREFIX"] = []
 
-        # Helper to get env var, prioritizing os.environ over class attributes
+        # Helper to get env var from class attributes
         def get_env(key, default=None):
-            return os.environ.get(key, getattr(self, key, default))
+            return getattr(self, key, default)
 
         # Basic configuration
         aws_region = get_env("DR_AWS_APP_REGION", "us-east-1")
@@ -190,12 +266,8 @@ class EnvVars:
         config["SIMTRACE_S3_PREFIX"].append(f"{model_prefix}/evaluation-{eval_time}")
 
         config["METRICS_S3_BUCKET"].append(s3_bucket)
-        metrics_prefix = get_env(
-            "DR_LOCAL_S3_METRICS_PREFIX", f"{model_prefix}/metrics"
-        )
-        config["METRICS_S3_OBJECT_KEY"].append(
-            f"{metrics_prefix}/evaluation/evaluation-{eval_time}.json"
-        )
+        metrics_prefix = f"{model_prefix}/metrics"
+        config["METRICS_S3_OBJECT_KEY"].append(f"{metrics_prefix}/TrainingMetrics.json")
 
         save_mp4 = str2bool(get_env("DR_EVAL_SAVE_MP4", False))
         if save_mp4:
@@ -224,7 +296,7 @@ class EnvVars:
         config["CAMERA_SUB_ENABLE"] = get_env("DR_CAMERA_SUB_ENABLE")
         config["REVERSE_DIR"] = str2bool(get_env("DR_EVAL_REVERSE_DIRECTION", False))
         config["ENABLE_EXTRA_KVS_OVERLAY"] = get_env(
-            "DR_ENABLE_EXTRA_KVS_OVERLAY", "False"
+            "DR_ENABLE_EXTRA_KVS_OVERLAY", "True"
         )
 
         race_type = config["RACE_TYPE"]
@@ -289,3 +361,7 @@ class EnvVars:
         config["EVAL_TIMESTAMP"] = eval_time
 
         return config
+
+    def __repr__(self):
+        from dataclasses import asdict
+        return f"EnvVars({asdict(self)})"

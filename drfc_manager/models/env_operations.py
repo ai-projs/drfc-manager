@@ -1,7 +1,7 @@
-# src/config/env_operations.py
 from dataclasses import dataclass
-import os
+from drfc_manager.types.env_vars import EnvVars
 
+env_vars = EnvVars()
 
 @dataclass(frozen=True)
 class EnvConfig:
@@ -21,6 +21,9 @@ def create_env_config(source_model: str, target_model: str) -> EnvConfig:
 
 def apply_env_config(config: EnvConfig) -> None:
     """Pure function to apply environment configuration."""
-    os.environ["DR_LOCAL_S3_PRETRAINED_PREFIX"] = config.pretrained_prefix
-    os.environ["DR_LOCAL_S3_PRETRAINED"] = str(config.pretrained)
-    os.environ["DR_LOCAL_S3_MODEL_PREFIX"] = config.model_prefix
+    env_vars.update(
+        DR_LOCAL_S3_PRETRAINED_PREFIX=config.pretrained_prefix,
+        DR_LOCAL_S3_PRETRAINED=str(config.pretrained),
+        DR_LOCAL_S3_MODEL_PREFIX=config.model_prefix,
+    )
+    env_vars.load_to_environment()

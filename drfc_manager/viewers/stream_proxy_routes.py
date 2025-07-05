@@ -1,10 +1,10 @@
 import socket
 import time
 from typing import List, Dict, Tuple
+from drfc_manager.types.env_vars import EnvVars
 import httpx
 from fastapi import Request, Query, Response, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse
-import os
 
 from drfc_manager.viewers.stream_proxy_utils import (
     parse_content_type,
@@ -33,14 +33,13 @@ from drfc_manager.types.constants import (
     DEFAULT_TOPIC,
     HEALTH_CHECK_SOCKET_TIMEOUT,
     HEALTH_CHECK_PING_TIMEOUT,
-    DEFAULT_TARGET_HOST,
-    DEFAULT_TARGET_PORT,
     HTTPX_TIMEOUT_CONNECT,
     HTTPX_TIMEOUT_READ,
     HTTPX_STREAM_CHUNK_SIZE,
 )
 
 logger = get_logger(__name__)
+env_vars = EnvVars()
 
 
 def validate_container_id(container_id: str, containers: List[str]) -> None:
@@ -222,8 +221,8 @@ async def proxy_stream(
             f"[{container_id}] Requested container_id not in known list configured via DR_VIEWER_CONTAINERS."
         )
 
-    target_host = os.environ.get("DR_TARGET_HOST", DEFAULT_TARGET_HOST)
-    target_port = int(os.environ.get("DR_TARGET_PORT", DEFAULT_TARGET_PORT))
+    target_host = env_vars.DR_TARGET_HOST
+    target_port = env_vars.DR_TARGET_PORT
     target_url = build_stream_url(
         target_host, target_port, topic, quality, width, height
     )
