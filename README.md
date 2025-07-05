@@ -1,5 +1,15 @@
 # drfc_manager
-> A Pythonic workflow manager and wrapper for DeepRacer for Cloud (DRfC)
+
+<div align="center">
+  <br>
+  <em>A Pythonic workflow manager and wrapper for DeepRacer for Cloud (DRfC)</em>
+  <br>
+<br>
+  <img src="./repo_logo.png" alt="DRfC Manager Logo" width="250">
+  <br>
+  <br>
+
+</div>
 
 ![Stars](https://img.shields.io/github/stars/joaocarvoli/drfc-manager)
 ![GitLab Forks](https://img.shields.io/github/forks/joaocarvoli/drfc-manager)
@@ -9,7 +19,7 @@
 ![Licence](https://img.shields.io/github/license/joaocarvoli/drfc-manager)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/ai-projs/drfc-manager?utm_source=oss&utm_medium=github&utm_campaign=ai-projs%2Fdrfc-manager&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-<img src="https://d1.awsstatic.com/deepracer/Evo%20and%20Sensor%20Launch%202020/evo-spin.fdf40252632704f3b07b0a2556b3d174732ab07e.gif" alt="EVO car" width="250">
+<!-- <img src="https://d1.awsstatic.com/deepracer/Evo%20and%20Sensor%20Launch%202020/evo-spin.fdf40252632704f3b07b0a2556b3d174732ab07e.gif" alt="EVO car" width="250"> -->
 
 <details open>
 <summary><h1>Table of Contents</h1></summary>
@@ -21,6 +31,7 @@
 5. [Advanced Usage](#advanced-usage)
 6. [Troubleshooting](#troubleshooting)
 7. [Idea behind](#idea-behind)
+8. [Contributing](#contributing)
 
 </details>
    
@@ -143,12 +154,6 @@ viewer_result = start_viewer_pipeline(run_id=0, quiet=True)
 stop_viewer_pipeline(quiet=True)
 ```
 
-## Advanced Usage
-
-- **Multi-user JupyterHub:** All logs and temp files are stored in user-specific directories under `/tmp/<username>/`.
-- **Environment Variables:** You can override any DRfC or DeepRacer environment variable by setting it in your `.env` or before running a pipeline.
-- **Direct MinIO/AWS S3 Access:** The library uses your MinIO or AWS credentials for all S3 operations. Make sure your `.env` or environment is set up correctly.
-
 ## Troubleshooting
 
 - **Docker Compose errors:** Make sure Docker is running and your user has permission to run Docker commands.
@@ -157,6 +162,10 @@ stop_viewer_pipeline(quiet=True)
 ## Idea behind
 
 This lib is developed using the same ideas and implementation as the [aws-deepracer-community/deepracer-for-cloud](https://github.com/aws-deepracer-community/deepracer-for-cloud) repo: _"A quick and easy way to get up and running with a DeepRacer training environment using a cloud virtual machine or a local computer"_.
+
+## Contributing
+
+We welcome contributions! Please see our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines and instructions.
 
 ---
 

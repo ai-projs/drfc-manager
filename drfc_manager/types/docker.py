@@ -1,7 +1,9 @@
 from enum import Enum
 
+
 class ComposeFileType(Enum):
     """Types of compose files used in DeepRacer"""
+
     TRAINING = "training"
     TRAINING_SWARM = "training-swarm"
 
@@ -18,5 +20,7 @@ class ComposeFileType(Enum):
     METRICS = "metrics"
 
     ROBOMAKER_MULTI = "robomaker-multi"
-    ROBOMAKER_SCRIPTS = "robomaker-scripts" 
-    SIMAPP = "simapp"                   
+    ROBOMAKER_SCRIPTS = "robomaker-scripts"
+    SIMAPP = "simapp"
+
+    CWLOG = "cwlog"

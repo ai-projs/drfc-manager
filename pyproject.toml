@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "drfc-manager"
-version = "0.1.2"
+version = "0.1.4"
 description = "A comprehensive Python package for managing AWS DeepRacer training workflows, model evaluation, and deployment. Features include pipeline management, custom model training, evaluation metrics, and visualization tools."
 authors = ["João Victor Carvalho <joaocarvoli@hotmail.com>"]
 license = "MIT"
@@ -32,9 +32,19 @@ uvicorn = "^0.34.2"
 pillow = "^11.2.1"
 tqdm = "^4.67.1"
 streamlit = "^1.45.0"
+ruff = "^0.11.11"
+pre-commit = "^4.2.0"
+bump2version = "1.0.1"
+structlog = "^25.3.0"
 
 [tool.poetry.group.dev.dependencies]
 bump2version = "^1.0.1"
+mypy = "^1.15.0"
+types-requests = "^2.32.0.20250515"
+types-pyyaml = "^6.0.12.20250516"
+pytest = "^8.3.5"
+pytest-mock = "^3.14.1"
+pytest-asyncio = "^1.0.0"
 
 [tool.poetry.plugins.dotenv]
 ignore = "false"
