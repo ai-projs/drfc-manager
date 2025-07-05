@@ -13,7 +13,6 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger("drfc")
-logger.propagate = False
 
 LOG_DIR = os.path.join(tempfile.gettempdir(), "drfc_logs")
 os.makedirs(LOG_DIR, exist_ok=True)

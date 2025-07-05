@@ -1,5 +1,5 @@
 from io import BytesIO
-from typing import Callable, Dict, Optional, Union, Any
+from typing import Callable, Dict, Optional, Union
 import json
 import re
 
@@ -8,6 +8,7 @@ from minio.error import S3Error
 from minio.commonconfig import CopySource
 
 from drfc_manager.config_env import AppConfig
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.types.hyperparameters import HyperParameters
 from drfc_manager.types.model_metadata import ModelMetadata
 from drfc_manager.utils.minio.utilities import (
@@ -24,6 +25,9 @@ from drfc_manager.utils.logging import logger
 from drfc_manager.config_env import settings
 
 
+env_vars = EnvVars()
+
+
 class StorageError(Exception):
     """Custom exception for storage-related errors."""
 
@@ -36,37 +40,29 @@ class MinioStorageManager(StorageClient):
     def __init__(self, config: Optional[AppConfig] = None):
         if config is None:
             config = settings
-        self._config = config.minio
         try:
             self.client = Minio(
-                endpoint=str(self._config.server_url)
+                endpoint=str(env_vars.DR_MINIO_URL_API)
                 .replace("http://", "")
                 .replace("https://", ""),
-                access_key=self._config.access_key,
-                secret_key=self._config.secret_key.get_secret_value()
-                if hasattr(self._config.secret_key, "get_secret_value")
-                else self._config.secret_key,
-                secure=str(self._config.server_url).startswith("https"),
+                access_key=env_vars.DR_LOCAL_ACCESS_KEY_ID,
+                secret_key=env_vars.DR_LOCAL_SECRET_ACCESS_KEY,
+                secure=str(env_vars.DR_MINIO_URL_API).startswith("https"),
             )
             # Check connection/bucket
-            found = self.client.bucket_exists(self._config.bucket_name)
+            found = self.client.bucket_exists(env_vars.DR_LOCAL_S3_BUCKET)
             if not found:
-                self.client.make_bucket(self._config.bucket_name)
-                logger.info(f"Created MinIO bucket: {self._config.bucket_name}")
+                self.client.make_bucket(env_vars.DR_LOCAL_S3_BUCKET)
+                logger.info(f"Created MinIO bucket: {env_vars.DR_LOCAL_S3_BUCKET}")
             else:
-                logger.info(f"Using existing MinIO bucket: {self._config.bucket_name}")
+                logger.info(f"Using existing MinIO bucket: {env_vars.DR_LOCAL_S3_BUCKET}")
 
         except S3Error as e:
             raise StorageError(f"MinIO S3 Error: {e}") from e
         except Exception as e:
             raise StorageError(
-                f"Failed to initialize MinIO client for endpoint {self._config.server_url}: {e}"
+                f"Failed to initialize MinIO client for endpoint {env_vars.DR_MINIO_URL_API}: {e}"
             ) from e
-
-    @property
-    def config(self) -> Any:
-        """Get the storage configuration."""
-        return self._config
 
     def _upload_data(
         self,
@@ -80,14 +76,14 @@ class MinioStorageManager(StorageClient):
             data = BytesIO(data)
         try:
             self.client.put_object(
-                self._config.bucket_name,
+                env_vars.DR_LOCAL_S3_BUCKET,
                 object_name,
                 data,
                 length=length,
                 content_type=content_type,
             )
             logger.info(
-                f"Successfully uploaded {object_name} to bucket {self._config.bucket_name}"
+                f"Successfully uploaded {object_name} to bucket {env_vars.DR_LOCAL_S3_BUCKET}"
             )
         except S3Error as e:
             raise StorageError(f"Failed to upload {object_name} to MinIO: {e}") from e
@@ -101,7 +97,7 @@ class MinioStorageManager(StorageClient):
     ) -> None:
         """Upload hyperparameters JSON."""
         if object_name is None:
-            object_name = f"{self._config.custom_files_folder}/hyperparameters.json"
+            object_name = f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/hyperparameters.json"
         try:
             data_bytes = serialize_hyperparameters(hyperparameters)
             self._upload_data(
@@ -115,7 +111,7 @@ class MinioStorageManager(StorageClient):
     ) -> None:
         """Upload model metadata JSON."""
         if object_name is None:
-            object_name = f"{self._config.custom_files_folder}/model_metadata.json"
+            object_name = f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/model_metadata.json"
         try:
             data_bytes = serialize_model_metadata(model_metadata)
             self._upload_data(
@@ -131,7 +127,7 @@ class MinioStorageManager(StorageClient):
     ) -> None:
         """Upload reward function Python code."""
         if object_name is None:
-            object_name = f"{self._config.custom_files_folder}/reward_function.py"
+            object_name = f"{env_vars.DR_LOCAL_S3_CUSTOM_FILES_PREFIX}/reward_function.py"
         try:
             if isinstance(reward_function, str):
                 match = re.search(
@@ -162,7 +158,7 @@ class MinioStorageManager(StorageClient):
     def upload_local_file(self, local_path: str, object_name: str):
         """Uploads a file from the local filesystem."""
         try:
-            self.client.fput_object(self._config.bucket_name, object_name, local_path)
+            self.client.fput_object(env_vars.DR_LOCAL_S3_BUCKET, object_name, local_path)
             logger.info(
                 f"Successfully uploaded local file {local_path} to {object_name}"
             )
@@ -178,7 +174,7 @@ class MinioStorageManager(StorageClient):
     def object_exists(self, object_name: str) -> bool:
         """Checks if an object exists in the bucket."""
         try:
-            self.client.stat_object(self._config.bucket_name, object_name)
+            self.client.stat_object(env_vars.DR_LOCAL_S3_BUCKET, object_name)
             return True
         except S3Error as e:
             if e.code == "NoSuchKey":
@@ -195,9 +191,9 @@ class MinioStorageManager(StorageClient):
         """Copies an object within the bucket."""
         try:
             # Create a proper CopySource object
-            source = CopySource(self._config.bucket_name, source_object_name)
+            source = CopySource(env_vars.DR_LOCAL_S3_BUCKET, source_object_name)
 
-            self.client.copy_object(self._config.bucket_name, dest_object_name, source)
+            self.client.copy_object(env_vars.DR_LOCAL_S3_BUCKET, dest_object_name, source)
             logger.info(
                 f"Successfully copied {source_object_name} to {dest_object_name}"
             )
@@ -209,7 +205,7 @@ class MinioStorageManager(StorageClient):
     def copy_model_files(self, prefix: str, dest_prefix: str) -> None:
         """Copy model files from source prefix to destination prefix in S3."""
         objects = self.client.list_objects(
-            self.config.bucket_name, prefix=prefix, recursive=True
+            env_vars.DR_LOCAL_S3_BUCKET, prefix=prefix, recursive=True
         )
         for obj in objects:
             src = obj.object_name
@@ -223,7 +219,7 @@ class MinioStorageManager(StorageClient):
         """
         try:
             objects = self.client.list_objects(
-                self._config.bucket_name, prefix=f"{model_name}/", recursive=True
+                env_vars.DR_LOCAL_S3_BUCKET, prefix=f"{model_name}/", recursive=True
             )
             for _ in objects:
                 return True
@@ -236,7 +232,7 @@ class MinioStorageManager(StorageClient):
     def download_json(self, object_name: str) -> Dict:
         """Download and parse a JSON object."""
         try:
-            response = self.client.get_object(self._config.bucket_name, object_name)
+            response = self.client.get_object(env_vars.DR_LOCAL_S3_BUCKET, object_name)
             data = response.read().decode("utf-8")
             return json.loads(data)
         except Exception as e:
@@ -249,7 +245,7 @@ class MinioStorageManager(StorageClient):
     def download_py_object(self, object_name: str) -> str:
         """Download a Python file as text."""
         try:
-            response = self.client.get_object(self._config.bucket_name, object_name)
+            response = self.client.get_object(env_vars.DR_LOCAL_S3_BUCKET, object_name)
             return response.read().decode("utf-8")
         except Exception as e:
             raise StorageError(f"Error downloading object {object_name}: {e}")

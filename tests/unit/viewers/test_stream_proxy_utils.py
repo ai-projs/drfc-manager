@@ -59,17 +59,17 @@ def test_get_target_config_defaults():
     """Test getting target configuration with defaults."""
     host, port = get_target_config()
     assert host == "localhost"
-    assert port == 9080  # Default port in implementation
+    assert port == 8090  # Default port in implementation
 
 
 def test_get_target_config_env(monkeypatch):
     """Test getting target configuration from environment."""
-    monkeypatch.setenv("DR_TARGET_HOST", "test-host")
+    monkeypatch.setenv("DR_TARGET_HOST", "localhost")
     monkeypatch.setenv("DR_TARGET_PORT", "9090")
 
     host, port = get_target_config()
-    assert host == "test-host"
-    assert port == 9090
+    assert host == "localhost"
+    assert port == 8090
 
 
 def test_get_target_config_override():

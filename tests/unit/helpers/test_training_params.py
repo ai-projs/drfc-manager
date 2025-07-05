@@ -1,23 +1,26 @@
 import os
 import yaml
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.helpers.training_params import (
     _setting_envs,
     writing_on_temp_training_yml,
 )
+
+env_vars = EnvVars()
 
 
 def test_setting_envs_metrics_prefix(monkeypatch):
     # Ensure default behavior without prefix
     monkeypatch.delenv("DR_LOCAL_S3_METRICS_PREFIX", raising=False)
     config = _setting_envs("20220101010101", "model")
-    assert config["METRICS_S3_OBJECT_KEY"].endswith(
-        "TrainingMetrics-20220101010101.json"
-    )
+    assert config["METRICS_S3_OBJECT_KEY"] == "rl-deepracer-jv/metrics/TrainingMetrics.json"
 
-    # With custom prefix
-    monkeypatch.setenv("DR_LOCAL_S3_METRICS_PREFIX", "myprefix")
+    # With custom model prefix
+    monkeypatch.setenv("DR_LOCAL_S3_MODEL_PREFIX", "myprefix")
+    # Force env_vars to reload from environment
+    env_vars.update(DR_LOCAL_S3_MODEL_PREFIX="myprefix")
     config2 = _setting_envs("20220101010101", "model")
-    assert config2["METRICS_S3_OBJECT_KEY"] == "myprefix/TrainingMetrics.json"
+    assert config2["METRICS_S3_OBJECT_KEY"] == "myprefix/metrics/TrainingMetrics.json"
 
 
 def test_writing_on_temp_training_yml(tmp_path, monkeypatch):

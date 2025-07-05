@@ -1,20 +1,28 @@
-import os
+from datetime import datetime
 import uvicorn
 from fastapi import FastAPI, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
+from drfc_manager.types.env_vars import EnvVars
 from drfc_manager.viewers.stream_proxy_routes import proxy_stream, health_check
 from drfc_manager.viewers.stream_proxy_utils import parse_containers
-from drfc_manager.utils.logging_config import get_logger
+from drfc_manager.utils.logging_config import get_logger, configure_logging
 from drfc_manager.types.constants import (
-    DEFAULT_PROXY_PORT,
     DEFAULT_TOPIC,
     DEFAULT_QUALITY,
     DEFAULT_WIDTH,
     DEFAULT_HEIGHT,
 )
-
+env_vars = EnvVars()
 logger = get_logger(__name__)
+
+# Use environment variable for log directory or fall back to user's home directory
+log_dir = os.environ.get('DRFC_LOG_DIR', os.path.expanduser('~/drfc_logs'))
+log_file_name = f"{log_dir}/proxy_{env_vars.DR_RUN_ID}-{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+configure_logging(log_file=log_file_name)
+
+env_vars = EnvVars()
 
 
 def create_app() -> FastAPI:
@@ -29,7 +37,7 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", "[]"))
+    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", ""))
 
     @app.get("/{container_id}/stream")
     async def stream_route(
@@ -61,12 +69,13 @@ def create_app() -> FastAPI:
 
 def main():
     """Main entry point for the stream proxy server."""
-    port = int(os.environ.get("DR_PROXY_PORT", DEFAULT_PROXY_PORT))
+    port = int(env_vars.DR_DYNAMIC_PROXY_PORT)
     host = "0.0.0.0"
 
     logger.info("starting_proxy_server", host=host, port=port)
 
-    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", "[]"))
+    containers = parse_containers(os.environ.get("DR_VIEWER_CONTAINERS", ""))
+
     if containers:
         logger.info(
             "container_config_loaded",
