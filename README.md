@@ -154,12 +154,6 @@ viewer_result = start_viewer_pipeline(run_id=0, quiet=True)
 stop_viewer_pipeline(quiet=True)
 ```
 
-## Advanced Usage
-
-- **Multi-user JupyterHub:** All logs and temp files are stored in user-specific directories under `/tmp/<username>/`.
-- **Environment Variables:** You can override any DRfC or DeepRacer environment variable by setting it in your `.env` or before running a pipeline.
-- **Direct MinIO/AWS S3 Access:** The library uses your MinIO or AWS credentials for all S3 operations. Make sure your `.env` or environment is set up correctly.
-
 ## Troubleshooting
 
 - **Docker Compose errors:** Make sure Docker is running and your user has permission to run Docker commands.
